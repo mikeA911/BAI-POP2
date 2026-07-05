@@ -1,0 +1,6 @@
+{
+  "deno.enable": false,
+  "deno.enablePaths": ["./supabase/functions"],
+  "editor.formatOnSave": true,
+  "typescript.tsdk": "web/node_modules/typescript/lib"
+}
