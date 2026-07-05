@@ -21,8 +21,9 @@ carecall/
 ├── supabase/
 │   ├── migrations/          # schema, slot-generation function, RLS, seed
 │   └── functions/
-│       ├── _shared/         # supabase + telnyx clients, helpers
-│       ├── start-campaign/  # dials pending patients with AMD enabled
+│       ├── _shared/         # supabase + telnyx clients, auth/audit helpers
+│       ├── start-campaign/  # dials pending patients (status/hours/DNC gated)
+│       ├── admin-manage/    # users & clinics: create/role/reset/(de)activate
 │       ├── telnyx-call-events/  # Call Control webhook: AMD, voicemail, hangup
 │       └── assistant-tools/ # verify_patient, get_appointment_slots, create_appointment, mark_outcome
 ├── telnyx/
@@ -102,11 +103,34 @@ Deploy the functions:
 
 ```bash
 supabase functions deploy start-campaign
+supabase functions deploy admin-manage                    # portal user/clinic admin (JWT-verified)
 supabase functions deploy telnyx-call-events --no-verify-jwt
 supabase functions deploy assistant-tools --no-verify-jwt
 ```
 
-(`--no-verify-jwt` because Telnyx calls those two directly; they're protected by the shared secret / always-200 webhook pattern instead. `telnyx-call-events` should additionally verify Telnyx webhook signatures before production — see Hardening below.)
+(`--no-verify-jwt` because Telnyx calls those two directly; they're protected by the shared secret / always-200 webhook pattern instead. `telnyx-call-events` should additionally verify Telnyx webhook signatures before production — see Hardening below. `admin-manage` keeps JWT verification ON — it authorizes each action from the caller's role in `app_metadata`.)
+
+### 3a. Roles, RLS & scheduling (portal spec v1.1)
+
+Two additional migrations ship the role/permission model and campaign lifecycle:
+
+- `20260705000000_portal_roles.sql` — `clinics` table + `clinic_id` on all clinic-scoped tables, patient `do_not_call`/`active`, the campaign `status` machine, the review-queue `resolved` state, the `audit_log`, role helpers (`is_admin()`, `jwt_clinic_id()`, `is_clinic_admin()`), the clinic-scoped RLS rewrite, and the `avatars` storage bucket. Existing single-clinic data backfills to one seed clinic.
+- `20260705000100_cron_scheduling.sql` — a `pg_cron` job that pings `start-campaign` every 15 minutes for every `active` campaign inside its clinic's calling hours. Configure it once:
+
+  ```sql
+  alter database postgres set app.settings.functions_url = 'https://<PROJECT_REF>.supabase.co/functions/v1';
+  alter database postgres set app.settings.service_role_key = '<SERVICE_ROLE_KEY>';
+  ```
+
+**Roles** (`admin`, `clinic_admin`, `staff`) and `clinic_id` live in `auth.users.app_metadata` and are written **only** by `admin-manage`. Bootstrap the first Admin once via the Supabase dashboard or SQL:
+
+```sql
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"role":"admin","clinic_id":null}'::jsonb
+where email = 'you@example.com';
+```
+
+That user can then create clinics, Clinic Admins, and Staff from the portal. New users receive a temporary password (shown once in the UI) and are forced to change it on first login.
 
 ## 4. Set up Telnyx
 
@@ -125,7 +149,9 @@ npm install
 npm run dev
 ```
 
-Enable **Email auth** in Supabase and create a staff user (the portal relies on RLS: only authenticated users can read/write). For the MVP you can sign in via the Supabase dashboard-generated magic link; adding a login screen is a small follow-up.
+Enable **Email auth** in Supabase. The portal now ships a real email/password login screen with a forced first-login password change. Sign in as the bootstrapped Admin (see §3a), then create clinics, Clinic Admins, and Staff from **Users** and **Clinics**. RLS scopes every table by clinic and role; the UI hides what a role cannot do and the database rejects it regardless.
+
+Optional feature flag: set `VITE_MULTI_CLINIC=true` in `web/.env` once more than one clinic is seeded to enable the Admin clinic switcher (D2: stubbed to a single clinic by default).
 
 ## 6. Smoke test
 

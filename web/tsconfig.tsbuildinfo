@@ -1,1 +1,0 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/lib/supabase.ts","./src/pages/CallHistory.tsx","./src/pages/Campaigns.tsx","./src/pages/Dashboard.tsx","./src/pages/Patients.tsx"],"version":"5.9.3"}

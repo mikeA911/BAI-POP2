@@ -22,16 +22,43 @@ Deno.serve(async (req) => {
 
   const { data: campaign } = await supabase.from("campaigns")
     .select("*").eq("id", campaign_id).single();
-  if (!campaign?.active) return json({ error: "campaign not found or inactive" }, 404);
+  if (!campaign) return json({ error: "campaign not found" }, 404);
 
-  // Pending patients + callbacks that are now due
+  // Status machine (§2.5): only 'active' campaigns dial. Pause is respected
+  // immediately because the dialer refuses to pick up new patients here.
+  if (campaign.status !== "active") {
+    return json({ started: 0, message: `campaign is ${campaign.status}, not active` });
+  }
+
+  // Calling-hours gate (§4.4): exit quietly outside the clinic's local window.
+  const { data: withinHours } = await supabase.rpc("clinic_within_calling_hours", {
+    p_clinic_id: campaign.clinic_id,
+  });
+  if (withinHours === false) {
+    return json({ started: 0, message: "outside clinic calling hours" });
+  }
+
+  // Pending patients + callbacks that are now due.
+  // DNC/inactive exclusion happens at query level, not just in the UI (§4.2).
   const { data: queue } = await supabase.from("campaign_patients")
-    .select("patient_id, status, attempts, callback_after, patients(*)")
+    .select("patient_id, status, attempts, callback_after, patients!inner(*)")
     .eq("campaign_id", campaign_id)
+    .eq("patients.do_not_call", false)
+    .eq("patients.active", true)
     .or(`status.eq.pending,and(status.eq.callback_requested,callback_after.lte.${new Date().toISOString()})`)
     .limit(batch_size);
 
-  if (!queue?.length) return json({ started: 0, message: "no pending patients" });
+  if (!queue?.length) {
+    // Auto-complete when nothing remains in pending/callback states (§2.5).
+    const { count } = await supabase.from("campaign_patients")
+      .select("patient_id", { count: "exact", head: true })
+      .eq("campaign_id", campaign_id)
+      .in("status", ["pending", "calling", "callback_requested"]);
+    if (!count) {
+      await supabase.from("campaigns").update({ status: "completed" }).eq("id", campaign_id);
+    }
+    return json({ started: 0, message: "no pending patients" });
+  }
 
   let started = 0;
   for (const row of queue) {
@@ -63,6 +90,7 @@ Deno.serve(async (req) => {
           call_control_id: ccid,
           patient_id: patient.id,
           campaign_id,
+          clinic_id: campaign.clinic_id,
         }),
         supabase.from("campaign_patients").update({
           status: "calling",

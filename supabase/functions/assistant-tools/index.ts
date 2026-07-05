@@ -10,8 +10,13 @@
 
 import { supabase, json, checkToolSecret, speakable } from "../_shared/lib.ts";
 
-const CLINIC_TZ = Deno.env.get("CLINIC_TZ") ?? "America/Chicago";
+const DEFAULT_CLINIC_TZ = Deno.env.get("CLINIC_TZ") ?? "America/Chicago";
 const MAX_VERIFY_ATTEMPTS = 2; // initial attempt + one retry
+
+/** Resolve the clinic timezone for a call context, falling back to the env default (§5). */
+function clinicTz(ctx: { clinics?: { timezone?: string } | null }): string {
+  return ctx.clinics?.timezone ?? DEFAULT_CLINIC_TZ;
+}
 
 Deno.serve(async (req) => {
   if (!checkToolSecret(req)) return json({ error: "unauthorized" }, 401);
@@ -42,7 +47,7 @@ async function callContext(callControlId?: string) {
   if (!callControlId) throw new Error("missing call_control_id");
   const { data, error } = await supabase
     .from("call_logs")
-    .select("id, patient_id, campaign_id, verification_attempts, verified, patients(*), campaigns(*)")
+    .select("id, patient_id, campaign_id, verification_attempts, verified, patients(*), campaigns(*), clinics(timezone, name, phone_callback)")
     .eq("call_control_id", callControlId)
     .single();
   if (error || !data) throw new Error("call context not found");
@@ -102,22 +107,23 @@ async function getSlots(callControlId: string | undefined, args: Record<string, 
     p_from: args.from_date ?? undefined,
     p_days: args.days ? Number(args.days) : 14,
     p_limit: 60,
-    p_tz: CLINIC_TZ, // slots are generated in clinic-local wall-clock time
   });
   if (error) throw error;
 
   const granularity = args.granularity ?? "times";
 
+  const tz = clinicTz(ctx);
+
   if (granularity === "days") {
     const seen = new Set<string>();
     const days: { date: string; spoken: string }[] = [];
     for (const s of slots) {
-      const date = new Date(s.slot_start).toLocaleDateString("en-CA", { timeZone: CLINIC_TZ });
+      const date = new Date(s.slot_start).toLocaleDateString("en-CA", { timeZone: tz });
       if (!seen.has(date)) {
         seen.add(date);
         days.push({
           date,
-          spoken: new Date(s.slot_start).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: CLINIC_TZ }),
+          spoken: new Date(s.slot_start).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: tz }),
         });
       }
       if (days.length >= 3) break;
@@ -129,13 +135,13 @@ async function getSlots(callControlId: string | undefined, args: Record<string, 
   let filtered = slots as { slot_start: string; slot_end: string }[];
   if (args.on_date) {
     filtered = filtered.filter(
-      (s) => new Date(s.slot_start).toLocaleDateString("en-CA", { timeZone: CLINIC_TZ }) === args.on_date,
+      (s) => new Date(s.slot_start).toLocaleDateString("en-CA", { timeZone: tz }) === args.on_date,
     );
   }
   const times = filtered.slice(0, 3).map((s) => ({
     slot_start: s.slot_start,
     slot_end: s.slot_end,
-    spoken: speakable(s.slot_start, CLINIC_TZ),
+    spoken: speakable(s.slot_start, tz),
   }));
   return json({ times });
 }
@@ -156,10 +162,12 @@ async function createAppointment(callControlId: string | undefined, args: Record
   const endsAt = new Date(startsAt.getTime() + (campaign.slot_length_minutes ?? 30) * 60_000);
   const idempotencyKey = `${callControlId}:${args.slot_start}`;
 
+  const tz = clinicTz(ctx);
+
   const { data: existing } = await supabase.from("appointments")
     .select("id, starts_at").eq("idempotency_key", idempotencyKey).maybeSingle();
   if (existing) {
-    return json({ booked: true, appointment_id: existing.id, spoken: speakable(existing.starts_at, CLINIC_TZ) });
+    return json({ booked: true, appointment_id: existing.id, spoken: speakable(existing.starts_at, tz) });
   }
 
   const { data: appt, error } = await supabase.from("appointments").insert({
@@ -186,7 +194,7 @@ async function createAppointment(callControlId: string | undefined, args: Record
     supabase.from("call_logs").update({ appointment_id: appt.id, result: "booked" }).eq("id", ctx.id),
   ]);
 
-  return json({ booked: true, appointment_id: appt.id, spoken: speakable(startsAt.toISOString(), CLINIC_TZ) });
+  return json({ booked: true, appointment_id: appt.id, spoken: speakable(startsAt.toISOString(), tz) });
 }
 
 // ------------------------------------------------------------------

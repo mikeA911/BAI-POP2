@@ -1,55 +1,83 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Papa from "papaparse";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useSession, roleAtLeast } from "../lib/session";
+import { useClinic } from "../lib/clinic";
+import type { Patient, Campaign } from "../lib/types";
 
-type Patient = { id: string; first_name: string; last_name: string; phone: string; date_of_birth: string };
-type Campaign = { id: string; name: string };
+type ParsedRow = {
+  first_name: string; last_name: string; phone: string; date_of_birth: string;
+  email: string | null; notes: string | null; error?: string;
+};
 
-// Expected CSV headers: first_name,last_name,phone,date_of_birth[,email,notes]
 export default function Patients() {
+  const { role } = useSession();
+  const { activeClinicId } = useClinic();
+  const canManage = roleAtLeast(role, "clinic_admin");
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [targetCampaign, setTargetCampaign] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState("");
   const [form, setForm] = useState({ first_name: "", last_name: "", phone: "", date_of_birth: "" });
+  const [preview, setPreview] = useState<ParsedRow[] | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
+    if (!activeClinicId) return;
     const [{ data: p }, { data: c }] = await Promise.all([
-      supabase.from("patients").select("id, first_name, last_name, phone, date_of_birth").order("created_at", { ascending: false }).limit(200),
-      supabase.from("campaigns").select("id, name").eq("active", true),
+      supabase.from("patients").select("*").eq("clinic_id", activeClinicId).order("created_at", { ascending: false }).limit(300),
+      supabase.from("campaigns").select("*").eq("clinic_id", activeClinicId).in("status", ["draft", "scheduled", "active", "paused"]),
     ]);
     setPatients((p as Patient[]) ?? []);
     setCampaigns((c as Campaign[]) ?? []);
-  }
-  useEffect(() => { load(); }, []);
+  }, [activeClinicId]);
 
+  useEffect(() => { load(); }, [load]);
+
+  // CSV dry-run preview (§2.6): parse, show row errors, then confirm.
   function onCsv(file: File) {
     Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (res) => {
-        const rows = (res.data as Record<string, string>[])
-          .filter((r) => r.first_name && r.phone && r.date_of_birth)
-          .map((r) => ({
-            first_name: r.first_name.trim(),
-            last_name: (r.last_name ?? "").trim(),
-            phone: normalizePhone(r.phone),
-            date_of_birth: r.date_of_birth.trim(),
-            email: r.email?.trim() || null,
-            notes: r.notes?.trim() || null,
-          }));
-        if (!rows.length) { setMsg("No valid rows found. Headers needed: first_name, last_name, phone, date_of_birth"); return; }
-        const { error } = await supabase.from("patients")
-          .upsert(rows, { onConflict: "phone,date_of_birth", ignoreDuplicates: true });
-        setMsg(error ? `Import failed: ${error.message}` : `Imported ${rows.length} patients.`);
-        load();
+      header: true, skipEmptyLines: true,
+      complete: (res) => {
+        const rows: ParsedRow[] = (res.data as Record<string, string>[]).map((r) => {
+          const first_name = (r.first_name ?? "").trim();
+          const phone = normalizePhone(r.phone ?? "");
+          const dob = (r.date_of_birth ?? "").trim();
+          let error: string | undefined;
+          if (!first_name) error = "missing first_name";
+          else if (!/^\+\d{8,15}$/.test(phone)) error = "invalid phone";
+          else if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) error = "DOB must be YYYY-MM-DD";
+          return {
+            first_name, last_name: (r.last_name ?? "").trim(), phone, date_of_birth: dob,
+            email: r.email?.trim() || null, notes: r.notes?.trim() || null, error,
+          };
+        });
+        setPreview(rows);
+        setMsg("");
       },
     });
   }
 
+  async function confirmImport() {
+    if (!preview) return;
+    const valid = preview.filter((r) => !r.error).map((r) => ({
+      clinic_id: activeClinicId,
+      first_name: r.first_name, last_name: r.last_name, phone: r.phone,
+      date_of_birth: r.date_of_birth, email: r.email, notes: r.notes,
+    }));
+    if (!valid.length) { setMsg("No valid rows to import."); return; }
+    const { error } = await supabase.from("patients")
+      .upsert(valid, { onConflict: "phone,date_of_birth", ignoreDuplicates: true });
+    setMsg(error ? `Import failed: ${error.message}` : `Imported ${valid.length} patients.`);
+    setPreview(null);
+    load();
+  }
+
   async function addOne() {
-    const { error } = await supabase.from("patients").insert({ ...form, phone: normalizePhone(form.phone) });
+    const { error } = await supabase.from("patients")
+      .insert({ ...form, clinic_id: activeClinicId, phone: normalizePhone(form.phone) });
     setMsg(error ? `Failed: ${error.message}` : "Patient added.");
     setForm({ first_name: "", last_name: "", phone: "", date_of_birth: "" });
     load();
@@ -70,28 +98,59 @@ export default function Patients() {
     setSelected(next);
   }
 
+  const validCount = preview?.filter((r) => !r.error).length ?? 0;
+  const errorCount = (preview?.length ?? 0) - validCount;
+
   return (
     <>
       <h1>Patients</h1>
       {msg && <p role="status">{msg}</p>}
 
-      <div className="form-card">
-        <label htmlFor="csv">Import CSV (first_name, last_name, phone, date_of_birth)</label>
-        <input id="csv" type="file" accept=".csv"
-               onChange={(e) => e.target.files?.[0] && onCsv(e.target.files[0])} />
+      {canManage && (
+        <div className="form-card">
+          <label htmlFor="csv">Import CSV (first_name, last_name, phone, date_of_birth[, email, notes])</label>
+          <input id="csv" type="file" accept=".csv"
+                 onChange={(e) => e.target.files?.[0] && onCsv(e.target.files[0])} />
 
-        <label>Or add one patient</label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <input placeholder="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-          <input placeholder="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-          <input placeholder="Phone (+1…)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <input placeholder="DOB YYYY-MM-DD" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
+          {preview && (
+            <div style={{ marginTop: 12 }}>
+              <p><strong>Dry run:</strong> {validCount} valid, {errorCount} with errors.</p>
+              <div className="scroll-box">
+                <table>
+                  <thead><tr><th>Row</th><th>Name</th><th>Phone</th><th>DOB</th><th>Issue</th></tr></thead>
+                  <tbody>
+                    {preview.map((r, i) => (
+                      <tr key={i} className={r.error ? "row-error" : ""}>
+                        <td>{i + 1}</td>
+                        <td>{r.first_name} {r.last_name}</td>
+                        <td>{r.phone}</td>
+                        <td>{r.date_of_birth}</td>
+                        <td>{r.error ?? "ok"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="row-actions" style={{ marginTop: 10 }}>
+                <button disabled={!validCount} onClick={confirmImport}>Import {validCount} valid rows</button>
+                <button className="secondary" onClick={() => setPreview(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <label style={{ marginTop: 16 }}>Or add one patient</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <input placeholder="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <input placeholder="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <input placeholder="Phone (+1…)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <input placeholder="DOB YYYY-MM-DD" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <button className="secondary" onClick={addOne}
+                    disabled={!form.first_name || !form.phone || !form.date_of_birth}>Add patient</button>
+          </div>
         </div>
-        <div style={{ marginTop: 10 }}>
-          <button className="secondary" onClick={addOne}
-                  disabled={!form.first_name || !form.phone || !form.date_of_birth}>Add patient</button>
-        </div>
-      </div>
+      )}
 
       <h2>Assign to campaign</h2>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, maxWidth: 520 }}>
@@ -105,17 +164,21 @@ export default function Patients() {
       </div>
 
       <table>
-        <thead><tr><th></th><th>Name</th><th>Phone</th><th>Date of birth</th></tr></thead>
+        <thead><tr><th></th><th>Name</th><th>Phone</th><th>Date of birth</th><th>Flags</th></tr></thead>
         <tbody>
           {patients.map((p) => (
-            <tr key={p.id}>
+            <tr key={p.id} className={p.do_not_call || !p.active ? "row-muted" : ""}>
               <td><input type="checkbox" style={{ width: "auto" }} checked={selected.has(p.id)} onChange={() => toggle(p.id)} aria-label={`Select ${p.first_name} ${p.last_name}`} /></td>
-              <td>{p.first_name} {p.last_name}</td>
+              <td><Link to={`/patients/${p.id}`}>{p.first_name} {p.last_name}</Link></td>
               <td>{p.phone}</td>
               <td>{p.date_of_birth}</td>
+              <td>
+                {p.do_not_call && <span className="badge wrong_number">do not call</span>}
+                {!p.active && <span className="badge declined">inactive</span>}
+              </td>
             </tr>
           ))}
-          {!patients.length && <tr><td colSpan={4} className="empty">Import a CSV or add a patient to get started.</td></tr>}
+          {!patients.length && <tr><td colSpan={5} className="empty">Import a CSV or add a patient to get started.</td></tr>}
         </tbody>
       </table>
     </>

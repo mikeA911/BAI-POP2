@@ -15,8 +15,23 @@ import { supabase, telnyx, json } from "../_shared/lib.ts";
 const ASSISTANT_ID = Deno.env.get("TELNYX_ASSISTANT_ID")!;
 const FROM_NUMBER = Deno.env.get("TELNYX_FROM_NUMBER")!;
 const MESSAGING_PROFILE_ID = Deno.env.get("TELNYX_MESSAGING_PROFILE_ID") ?? "";
-const CLINIC_NAME = Deno.env.get("CLINIC_NAME") ?? "your clinic";
-const CALLBACK_NUMBER = Deno.env.get("CLINIC_CALLBACK_NUMBER") ?? FROM_NUMBER;
+// Env values remain as fallback defaults (§5). Per-clinic values are read from
+// the clinics row via the call's campaign so one deployment serves many clinics.
+const DEFAULT_CLINIC_NAME = Deno.env.get("CLINIC_NAME") ?? "your clinic";
+const DEFAULT_CALLBACK_NUMBER = Deno.env.get("CLINIC_CALLBACK_NUMBER") ?? FROM_NUMBER;
+
+/** Resolve clinic name + callback number for a call, via call_logs → campaign → clinic. */
+async function clinicForCall(ccid: string): Promise<{ name: string; callback: string; smsFallback: boolean }> {
+  const { data } = await supabase.from("call_logs")
+    .select("clinics(name, phone_callback, sms_fallback)")
+    .eq("call_control_id", ccid).maybeSingle();
+  const clinic = (data as { clinics?: { name?: string; phone_callback?: string; sms_fallback?: boolean } } | null)?.clinics;
+  return {
+    name: clinic?.name ?? DEFAULT_CLINIC_NAME,
+    callback: clinic?.phone_callback ?? DEFAULT_CALLBACK_NUMBER,
+    smsFallback: clinic?.sms_fallback ?? true,
+  };
+}
 
 Deno.serve(async (req) => {
   const event = await req.json().catch(() => null);
@@ -44,13 +59,14 @@ Deno.serve(async (req) => {
         if (result === "human" || result === "not_sure") {
           // Treat not_sure as human — worst case the AI greets a voicemail and
           // the silence-timeout ends the call. Start the AI assistant.
+          const clinic = await clinicForCall(ccid);
           await telnyx(`/calls/${ccid}/actions/ai_assistant_start`, {
             assistant: { id: ASSISTANT_ID },
             // Give the assistant per-call variables (never the DOB on file)
             dynamic_variables: {
               patient_first_name: state?.patient_first_name ?? "",
               campaign_context: state?.campaign_context ?? "",
-              clinic_name: CLINIC_NAME,
+              clinic_name: clinic.name,
             },
           });
         }
@@ -60,12 +76,13 @@ Deno.serve(async (req) => {
 
       case "call.machine.greeting.ended": {
         // Leave a brief, PHI-free callback message after the beep-ish moment
+        const clinic = await clinicForCall(ccid);
         await telnyx(`/calls/${ccid}/actions/speak`, {
           voice: "female",
           language: "en-US",
           payload:
-            `Hello, this is ${CLINIC_NAME} calling with a scheduling reminder. ` +
-            `Please call us back at ${spellNumber(CALLBACK_NUMBER)} at your convenience. Thank you.`,
+            `Hello, this is ${clinic.name} calling with a scheduling reminder. ` +
+            `Please call us back at ${spellNumber(clinic.callback)} at your convenience. Thank you.`,
         });
         break;
       }
@@ -74,14 +91,15 @@ Deno.serve(async (req) => {
         // Voicemail message finished → send SMS fallback, mark, hang up
         if (state?.patient_id && state?.campaign_id) {
           await markUnreached(state.campaign_id, state.patient_id, ccid, "voicemail");
-          if (MESSAGING_PROFILE_ID && state.patient_phone) {
+          const clinic = await clinicForCall(ccid);
+          if (MESSAGING_PROFILE_ID && state.patient_phone && clinic.smsFallback) {
             await telnyx(`/messages`, {
               from: FROM_NUMBER,
               to: state.patient_phone,
               messaging_profile_id: MESSAGING_PROFILE_ID,
               text:
-                `Hi, this is ${CLINIC_NAME}. We called to help you schedule an appointment. ` +
-                `Please call us at ${CALLBACK_NUMBER} and we'll find a time that works.`,
+                `Hi, this is ${clinic.name}. We called to help you schedule an appointment. ` +
+                `Please call us at ${clinic.callback} and we'll find a time that works.`,
             }).catch((e) => console.error("SMS failed", e));
           }
         }

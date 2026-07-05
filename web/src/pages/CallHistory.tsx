@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useClinic } from "../lib/clinic";
 
 type Log = {
   id: string; started_at: string; duration_seconds: number | null;
@@ -10,16 +11,19 @@ type Log = {
 };
 
 export default function CallHistory() {
+  const { activeClinicId } = useClinic();
   const [logs, setLogs] = useState<Log[]>([]);
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!activeClinicId) return;
     supabase.from("call_logs")
       .select("*, patients(first_name, last_name), campaigns(name)")
+      .eq("clinic_id", activeClinicId)
       .order("started_at", { ascending: false })
       .limit(100)
       .then(({ data }) => setLogs((data as unknown as Log[]) ?? []));
-  }, []);
+  }, [activeClinicId]);
 
   return (
     <>

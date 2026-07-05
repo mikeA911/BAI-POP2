@@ -108,3 +108,110 @@ label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
   nav.sidebar .brand { margin: 0 12px 0 0; }
   main.content { padding: 18px; }
 }
+
+/* ---------- Portal roles UI additions ---------- */
+
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+
+/* Auth screen */
+.auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--paper); padding: 20px; }
+.auth-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 380px; }
+.auth-card .brand { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--ink); margin-bottom: 14px; }
+.auth-card .brand span { color: var(--teal); }
+.auth-card h1 { font-size: 20px; margin-bottom: 12px; }
+.auth-err { color: var(--red); font-size: 13px; margin: 8px 0 0; }
+
+/* Sidebar extras */
+nav.sidebar .nav-sep { color: #6fc7c6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 10px 4px; opacity: 0.75; }
+nav.sidebar .nav-spacer { flex: 1; min-height: 12px; }
+nav.sidebar a { display: flex; align-items: center; justify-content: space-between; }
+.nav-badge { background: var(--red); color: #fff; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 7px; }
+nav.sidebar .signout { background: transparent; color: #cfe3e3; border: 1px solid rgba(255,255,255,0.2); text-align: left; padding: 8px 10px; margin-top: 6px; }
+nav.sidebar .signout:hover { background: rgba(255,255,255,0.08); }
+.nav-user { color: #9fc2c2; font-size: 12px; margin-top: 10px; padding: 0 10px; }
+.nav-clinic { color: #6fc7c6; font-weight: 600; }
+.clinic-switcher { margin-bottom: 14px; padding: 0 2px; }
+.clinic-switcher label { color: #9fc2c2; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.clinic-switcher select { background: #10202f; color: #e6f2f2; border-color: #26424f; }
+
+/* Admin context banner */
+.context-banner { background: #e1eef5; color: #2a6a8f; border: 1px solid #b9d6e6; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+
+/* Cards as links */
+.card-link { text-decoration: none; color: inherit; display: block; }
+.card-link:hover { border-color: var(--teal); }
+
+/* Page header row */
+.page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.page-head h1 { margin: 0; }
+
+/* Quick actions + row actions */
+.quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+button.danger, .btn.danger { background: var(--red); color: #fff; }
+button.danger:hover { background: #8f3f2c; }
+button.link, .link { background: none; border: none; color: var(--teal); padding: 0; font-weight: 600; cursor: pointer; text-decoration: none; }
+button.link.danger { color: var(--red); }
+a.btn { display: inline-block; text-decoration: none; }
+
+/* Filter chips */
+.filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.chip { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px; font-size: 13px; text-transform: capitalize; }
+.chip-on { background: var(--teal); color: #fff; border-color: var(--teal); }
+
+/* Status badges (campaign lifecycle) */
+.badge.status-draft { background: #eef1f3; color: var(--muted); }
+.badge.status-scheduled { background: #e1eef5; color: #2a6a8f; }
+.badge.status-active { background: #e2f2e8; color: var(--green); }
+.badge.status-paused { background: #fbf1d9; color: var(--amber); }
+.badge.status-completed { background: #e8eef0; color: var(--ink); }
+.badge.resolved { background: #e2f2e8; color: var(--green); }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin: 16px 0 10px; border-bottom: 1px solid var(--line); }
+.tabs button { background: transparent; color: var(--muted); border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px; }
+.tabs button.tab-on { color: var(--ink); border-bottom-color: var(--teal); }
+
+/* Progress bar */
+.progress-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--line); margin-bottom: 12px; }
+.progress-bar .seg { height: 100%; }
+.progress-bar .seg.booked { background: var(--green); }
+.progress-bar .seg.pending { background: var(--amber); }
+.progress-bar .seg.unreached { background: #9aa8b2; }
+.progress-bar .seg.needs { background: var(--red); }
+
+/* Tables: row states */
+.row-muted td { opacity: 0.55; }
+.row-error td { background: #fbeae4; }
+.row-selected td { background: #eef7f7; }
+.scroll-box { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.scroll-box table { border: none; border-radius: 0; }
+
+/* Key-value rows */
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.kv:last-child { border-bottom: none; }
+.kv span { color: var(--muted); }
+
+/* Two-column layout for clinicians */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* Availability editor */
+.avail-grid { display: flex; flex-direction: column; gap: 8px; }
+.avail-day { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.avail-day-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.avail-slot { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.avail-slot input[type="time"] { width: auto; }
+
+/* Clinic hours editor */
+.hours-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.hours-row input[type="time"] { width: auto; }
+
+/* Users temp password */
+.temp-pw { background: #fbf1d9; border: 1px solid #e6d19a; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.temp-pw code { font-size: 15px; font-weight: 700; }
+
+/* Avatar */
+.avatar-lg { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 24px; font-weight: 700; flex-shrink: 0; }
+.avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
