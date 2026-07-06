@@ -122,6 +122,46 @@ label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
 .auth-card h1 { font-size: 20px; margin-bottom: 12px; }
 .auth-err { color: var(--red); font-size: 13px; margin: 8px 0 0; }
 
+/* Row of secondary links under the sign-in form */
+.auth-links { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
+
+/* About panel (shown on the login screen) */
+.auth-card.about-card { max-width: 640px; max-height: min(88vh, 780px); overflow-y: auto; }
+.about-panel { margin-top: 4px; }
+.about-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.about-head h1 { margin-bottom: 2px; }
+.about-head p { margin: 0; }
+.about-lede { margin: 14px 0 0; }
+.about-section { margin-top: 22px; }
+.about-section h2 { margin: 0 0 10px; }
+
+.about-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.about-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.about-steps p { margin: 2px 0 0; }
+.about-step-num {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--teal); color: #fff; font-family: var(--font-display);
+  font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center;
+}
+
+.about-tools { display: flex; flex-direction: column; gap: 8px; }
+.about-tool {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+}
+.about-tool code { font-size: 13px; font-weight: 700; color: var(--teal-dark); }
+
+.about-roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.about-role { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.about-role strong { display: block; font-family: var(--font-display); }
+.about-role-scope { display: block; color: var(--teal-dark); font-weight: 600; margin: 1px 0 4px; }
+.about-role p { margin: 0; }
+
+.about-safeguards { margin: 0; padding-left: 18px; color: var(--muted); }
+.about-safeguards li { margin: 4px 0; }
+
+.about-foot { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+
 /* Sidebar extras */
 nav.sidebar .nav-sep { color: #6fc7c6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 10px 4px; opacity: 0.75; }
 nav.sidebar .nav-spacer { flex: 1; min-height: 12px; }

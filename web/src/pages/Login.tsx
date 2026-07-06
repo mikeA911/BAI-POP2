@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSession } from "../lib/session";
+import About from "./About";
 
 export default function Login() {
   const { forcePasswordChange, passwordRecovery, clearPasswordRecovery, session, refresh } = useSession();
@@ -10,7 +11,7 @@ export default function Login() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [mode, setMode] = useState<"signin" | "forgot">("signin");
+  const [mode, setMode] = useState<"signin" | "forgot" | "about">("signin");
   const [sent, setSent] = useState(false);
 
   // If we're already signed in but must change the password, show that form.
@@ -67,6 +68,18 @@ export default function Login() {
     }
     setBusy(false);
     if (error) setErr(error.message);
+  }
+
+  // The About panel is wider than the auth card and manages its own header.
+  if (!mustChange && mode === "about") {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card about-card">
+          <div className="brand">Care<span>Call</span></div>
+          <About onClose={goSignIn} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -138,9 +151,14 @@ export default function Login() {
                 {busy ? "Signing in…" : "Sign in"}
               </button>
             </form>
-            <button type="button" className="link" onClick={goForgot} style={{ marginTop: 12 }}>
-              Forgot password?
-            </button>
+            <div className="auth-links">
+              <button type="button" className="link" onClick={goForgot}>
+                Forgot password?
+              </button>
+              <button type="button" className="link" onClick={() => { setErr(""); setMode("about"); }}>
+                About CareCall
+              </button>
+            </div>
           </>
         )}
       </div>
