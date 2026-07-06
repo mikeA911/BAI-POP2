@@ -374,3 +374,126 @@ a.btn { display: inline-block; text-decoration: none; }
 /* Avatar */
 .avatar-lg { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 24px; font-weight: 700; flex-shrink: 0; }
 .avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ============================================================
+   Dashboard hero header (Healthcare Blue palette)
+   ============================================================ */
+.hero {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius-lg);
+  padding: clamp(28px, 4vw, 44px);
+  margin-bottom: var(--sp-3);
+  color: #fff;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(79,70,229,0.55) 0%, rgba(79,70,229,0) 55%),
+    linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 45%, var(--ink) 100%);
+  box-shadow: var(--shadow);
+}
+.hero-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.14);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #DCE6FB; font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 99px; margin-bottom: var(--sp-2);
+  letter-spacing: 0.02em;
+}
+.hero-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #A9C4FA; }
+.hero h1 {
+  color: #fff; font-size: clamp(28px, 4vw, 42px); line-height: 1.1;
+  margin: 0 0 12px; letter-spacing: -0.02em; max-width: 18ch;
+}
+.hero-lede { color: rgba(255,255,255,0.82); font-size: 15px; max-width: 62ch; margin: 0 0 var(--sp-3); }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Hero buttons: first = solid white (primary CTA), rest = translucent glass */
+.hero-btn {
+  background: rgba(255,255,255,0.12); color: #fff;
+  border: 1px solid rgba(255,255,255,0.18);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border-radius: var(--radius-sm); padding: 11px 18px; font-weight: 600; font-size: 14px;
+  cursor: pointer; transition: background 0.15s ease, transform 0.05s ease;
+}
+.hero-btn:hover { background: rgba(255,255,255,0.2); }
+.hero-btn:active { transform: translateY(1px); }
+.hero-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.hero-btn.primary { background: #fff; color: var(--blue-dark); border-color: #fff; }
+.hero-btn.primary:hover { background: #EEF3FE; }
+
+/* ============================================================
+   Dashboard windows grid (calendar / location / patient search)
+   ============================================================ */
+.window-grid {
+  display: grid; gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start; margin-bottom: var(--sp-3);
+}
+.window {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  padding: var(--sp-2) 20px; display: flex; flex-direction: column;
+}
+.window-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.window-head h2 { margin: 0; font-size: 16px; }
+.window-sub { color: var(--muted); font-size: 12px; margin: -6px 0 12px; }
+
+/* Appointment-slots calendar */
+.cal-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+.cal-legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.cal-legend .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.swatch.available { background: #E0F2F0; border: 1px solid var(--teal); }
+.swatch.booked { background: #E4EDFC; border: 1px solid var(--blue); }
+.swatch.soon { background: #FCEFDD; border: 1px solid var(--amber); }
+
+.cal-days { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; }
+.cal-day { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.cal-day.is-soon { border-color: var(--amber); background: #FFFBF4; }
+.cal-day-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-day-head strong { font-size: 13px; }
+.cal-soon-tag { background: #FCEFDD; color: #B45E05; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; }
+.cal-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-slot {
+  font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: var(--radius-sm);
+  border: 1px solid transparent; white-space: nowrap;
+}
+.cal-slot.available { background: #E0F2F0; color: var(--teal-dark); border-color: rgba(13,148,136,0.35); }
+.cal-slot.booked { background: #E4EDFC; color: var(--blue); border-color: rgba(26,86,219,0.35); }
+
+/* Medical center location */
+.loc-map {
+  position: relative; height: 150px; border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(26,86,219,0.10), rgba(13,148,136,0.10)),
+    repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 26px),
+    var(--paper);
+  border: 1px solid var(--line); overflow: hidden; margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.loc-pin {
+  width: 34px; height: 34px; border-radius: 50% 50% 50% 0;
+  background: var(--blue); transform: rotate(-45deg);
+  box-shadow: 0 6px 16px rgba(26,86,219,0.4);
+}
+.loc-pin::after { content: ""; position: absolute; inset: 0; margin: auto; width: 12px; height: 12px; background: #fff; border-radius: 50%; }
+.loc-map .map-note { position: absolute; bottom: 8px; right: 10px; font-size: 11px; color: var(--muted); background: rgba(255,255,255,0.8); padding: 2px 8px; border-radius: 99px; }
+.loc-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.loc-row:last-child { border-bottom: none; }
+.loc-row .loc-label { color: var(--muted); min-width: 84px; }
+
+/* Patient search → call history */
+.search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.search-row input { flex: 1; }
+.search-hint { color: var(--muted); font-size: 12px; margin: -4px 0 12px; }
+.search-results { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.search-patient {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+  cursor: pointer; background: var(--card); text-align: left; width: 100%;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.search-patient:hover { border-color: var(--blue); background: rgba(26,86,219,0.03); }
+.search-patient.open { border-color: var(--blue); background: rgba(26,86,219,0.04); }
+.search-patient .sp-name { font-weight: 600; color: var(--ink); }
+.search-patient .sp-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.sp-calls { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.sp-call { font-size: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-call .sp-when { color: var(--muted); }
+.sp-call .sp-summary { color: var(--ink); flex-basis: 100%; }
