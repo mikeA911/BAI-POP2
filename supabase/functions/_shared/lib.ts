@@ -101,3 +101,69 @@ export function speakable(iso: string, tz: string): string {
   const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
   return `${day} at ${time}`;
 }
+
+// ---------------------------------------------------------------------------
+// Booking-link token helpers (self-booking-link-spec §3).
+// The raw token lives only in the SMS/URL; the DB stores only its SHA-256 hash,
+// so a leaked database never leaks usable links.
+// ---------------------------------------------------------------------------
+
+/** Generate a 128-bit random base64url token (~22 chars, fits one URL segment). */
+export function generateBookingToken(): string {
+  const bytes = new Uint8Array(16); // 128 bits
+  crypto.getRandomValues(bytes);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** SHA-256 hex of a raw token — the value stored in booking_links.token_hash. */
+export async function hashBookingToken(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Create (or refresh) the ONE active booking link for a (campaign, patient) and
+ * return its public URL, or null if self-booking is unavailable. Enforces the
+ * "one active link per (campaign, patient)" rule by expiring priors. The raw
+ * token is returned only in the URL; the DB stores its hash.
+ *
+ * Requires PORTAL_URL (e.g. https://portal.example.com). Returns null when
+ * PORTAL_URL is unset so callers can gracefully fall back to a link-free SMS.
+ */
+export async function createBookingLink(
+  campaignId: string,
+  patientId: string,
+  clinicId: string | null,
+): Promise<string | null> {
+  const portal = (Deno.env.get("PORTAL_URL") ?? "").replace(/\/$/, "");
+  if (!portal) return null;
+
+  const token = generateBookingToken();
+  const tokenHash = await hashBookingToken(token);
+
+  // Expire any prior active links for this pair (one active link per pair).
+  await supabase.from("booking_links")
+    .update({ expires_at: new Date().toISOString() })
+    .eq("campaign_id", campaignId)
+    .eq("patient_id", patientId)
+    .is("booked_appointment_id", null)
+    .gt("expires_at", new Date().toISOString());
+
+  const { error } = await supabase.from("booking_links").insert({
+    token_hash: tokenHash,
+    campaign_id: campaignId,
+    patient_id: patientId,
+    clinic_id: clinicId,
+    // expires_at defaults to now() + 7 days in the schema.
+  });
+  if (error) {
+    console.error("createBookingLink insert failed", error);
+    return null;
+  }
+  return `${portal}/book/${token}`;
+}

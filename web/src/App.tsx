@@ -8,6 +8,7 @@ import type { Role } from "./lib/types";
 
 import Login from "./pages/Login";
 import About from "./pages/About";
+import BookPage from "./pages/BookPage";
 import Dashboard from "./pages/Dashboard";
 import Review from "./pages/Review";
 import Campaigns from "./pages/Campaigns";
@@ -146,6 +147,17 @@ function AdminContextBanner() {
 export default function App() {
   const { session, loading, forcePasswordChange } = useSession();
   const location = useLocation();
+
+  // Public self-service booking page — outside the auth guard. The patient is
+  // not a portal user, so this must render before any session/loading gate
+  // (self-booking-link-spec §6).
+  if (location.pathname.startsWith("/book/")) {
+    return (
+      <Routes>
+        <Route path="/book/:token" element={<BookPage />} />
+      </Routes>
+    );
+  }
 
   if (loading) return <div className="auth-screen"><div className="auth-card">Loading…</div></div>;
   if (!session || forcePasswordChange) return <Login />;

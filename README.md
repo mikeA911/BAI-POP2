@@ -96,8 +96,14 @@ supabase secrets set \
   TOOL_WEBHOOK_SECRET=<generate: openssl rand -hex 32> \
   CLINIC_NAME="River Valley Family Clinic" \
   CLINIC_CALLBACK_NUMBER=+1XXXXXXXXXX \
-  CLINIC_TZ=America/Chicago
+  CLINIC_TZ=America/Chicago \
+  PORTAL_URL=https://<portal-domain>       # base URL for self-booking links (/book/<token>)
 ```
+
+`PORTAL_URL` is used by the self-service booking link feature: `start-campaign`
+and `telnyx-call-events` mint a `/book/<token>` link and append it to outreach
+SMS (gated per-clinic by `clinics.self_booking_enabled`). If unset, SMS fall
+back to link-free copy and the feature stays dormant.
 
 Deploy the functions:
 
@@ -106,6 +112,7 @@ supabase functions deploy start-campaign
 supabase functions deploy admin-manage                    # portal user/clinic admin (JWT-verified)
 supabase functions deploy telnyx-call-events --no-verify-jwt
 supabase functions deploy assistant-tools --no-verify-jwt
+supabase functions deploy booking-api --no-verify-jwt      # public self-service booking API
 ```
 
 (`--no-verify-jwt` because Telnyx calls those two directly; they're protected by the shared secret / always-200 webhook pattern instead. `telnyx-call-events` should additionally verify Telnyx webhook signatures before production — see Hardening below. `admin-manage` keeps JWT verification ON — it authorizes each action from the caller's role in `app_metadata`.)

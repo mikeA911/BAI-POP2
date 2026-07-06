@@ -531,3 +531,90 @@ a.btn { display: inline-block; text-decoration: none; }
 .sp-call { font-size: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sp-call .sp-when { color: var(--muted); }
 .sp-call .sp-summary { color: var(--ink); flex-basis: 100%; }
+
+/* ============================================================
+   Public self-service booking page (/book/:token)
+   Mobile-first: nearly all traffic arrives from an SMS on a phone. Single
+   column, large touch targets (≥44px), generous spacing. No PHI beyond the
+   post-verification first name; times always carry an explicit tz label.
+   ============================================================ */
+.book-screen {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(249,250,251,0.94), rgba(26,86,219,0.14)),
+    var(--paper);
+}
+.book-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  width: 100%; max-width: 480px; margin-top: 24px;
+  padding: 24px 20px 28px;
+}
+.book-clinic {
+  font-family: var(--font-display); font-weight: 700; font-size: 20px;
+  color: var(--blue); letter-spacing: -0.01em;
+}
+.book-subtitle { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.book-body { margin-top: 20px; }
+.book-body h1 { font-size: 22px; margin: 0 0 8px; }
+.book-muted { color: var(--muted); font-size: 15px; margin: 0 0 4px; }
+.book-tz {
+  color: var(--muted); font-size: 13px; text-transform: uppercase;
+  letter-spacing: 0.04em; font-weight: 600; margin: 0 0 16px;
+}
+.book-err { color: var(--indigo); font-size: 14px; margin: 12px 0 0; font-weight: 500; }
+
+/* Inputs & primary button — oversized for touch. */
+.book-input {
+  width: 100%; font-size: 17px; padding: 14px; margin-top: 4px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.book-input:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+.book-btn {
+  width: 100%; margin-top: 18px; padding: 15px;
+  font-size: 16px; font-weight: 700; border-radius: var(--radius-sm);
+  background: var(--blue); color: #fff; border: none; cursor: pointer;
+}
+.book-btn:hover { background: var(--blue-dark); }
+.book-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.book-link {
+  display: block; width: 100%; margin-top: 16px;
+  background: none; border: none; color: var(--blue);
+  font-size: 15px; font-weight: 600; cursor: pointer; padding: 8px; text-align: center;
+}
+.book-link:hover { background: none; text-decoration: underline; }
+
+/* Day list — full-width stacked options. */
+.book-list { display: flex; flex-direction: column; gap: 10px; }
+.book-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; cursor: pointer; color: var(--ink);
+}
+.book-option:hover { border-color: var(--blue); background: rgba(26,86,219,0.04); }
+.book-option:disabled { opacity: 0.6; cursor: not-allowed; }
+.book-option-main { font-size: 16px; font-weight: 600; }
+.book-option-sub { font-size: 13px; color: var(--muted); }
+
+/* Time grid — 2 columns on phones, roomy tap targets. */
+.book-times {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+}
+.book-time {
+  padding: 16px 12px; font-size: 16px; font-weight: 600;
+  background: #E0F2F0; color: var(--teal-dark);
+  border: 1px solid rgba(13,148,136,0.35); border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.book-time:hover { background: #cdeae6; }
+.book-time:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Confirmation summary */
+.book-confirm { margin: 8px 0 4px; }
+.book-confirm-when {
+  font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  color: var(--ink); line-height: 1.25;
+}

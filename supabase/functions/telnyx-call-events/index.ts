@@ -13,7 +13,7 @@
 //   3. On call.hangup → finalize the call log and campaign_patient status.
 // Also receives the assistant's post-call Insights webhook on this same URL.
 
-import { supabase, telnyx, json } from "../_shared/lib.ts";
+import { supabase, telnyx, json, createBookingLink } from "../_shared/lib.ts";
 
 const ASSISTANT_ID = Deno.env.get("TELNYX_ASSISTANT_ID")!;
 const FROM_NUMBER = Deno.env.get("TELNYX_FROM_NUMBER")!;
@@ -24,15 +24,18 @@ const DEFAULT_CLINIC_NAME = Deno.env.get("CLINIC_NAME") ?? "your clinic";
 const DEFAULT_CALLBACK_NUMBER = Deno.env.get("CLINIC_CALLBACK_NUMBER") ?? FROM_NUMBER;
 
 /** Resolve clinic name + callback number for a call, via call_logs → campaign → clinic. */
-async function clinicForCall(ccid: string): Promise<{ name: string; callback: string; smsFallback: boolean }> {
+async function clinicForCall(ccid: string): Promise<{ id: string | null; name: string; callback: string; smsFallback: boolean; selfBooking: boolean }> {
   const { data } = await supabase.from("call_logs")
-    .select("clinics(name, phone_callback, sms_fallback)")
+    .select("clinic_id, clinics(name, phone_callback, sms_fallback, self_booking_enabled)")
     .eq("call_control_id", ccid).maybeSingle();
-  const clinic = (data as { clinics?: { name?: string; phone_callback?: string; sms_fallback?: boolean } } | null)?.clinics;
+  const row = data as { clinic_id?: string | null; clinics?: { name?: string; phone_callback?: string; sms_fallback?: boolean; self_booking_enabled?: boolean } } | null;
+  const clinic = row?.clinics;
   return {
+    id: row?.clinic_id ?? null,
     name: clinic?.name ?? DEFAULT_CLINIC_NAME,
     callback: clinic?.phone_callback ?? DEFAULT_CALLBACK_NUMBER,
     smsFallback: clinic?.sms_fallback ?? true,
+    selfBooking: clinic?.self_booking_enabled ?? false,
   };
 }
 
@@ -117,13 +120,27 @@ Deno.serve(async (req) => {
           // pre-call text (§3.3). No consent → skip the text (call already made).
           const smsConsent = await patientSmsConsent(state.patient_id);
           if (MESSAGING_PROFILE_ID && state.patient_phone && clinic.smsFallback && smsConsent) {
+            // Voicemail-fallback SMS. When self-booking is enabled for the
+            // clinic (and a booking link can be minted), send the self-serve
+            // copy with the link — the primary win: converting the largest
+            // dead-end bucket into 24/7 self bookings. Otherwise fall back to
+            // the classic "please call us" copy.
+            let text =
+              `Hi, this is ${clinic.name}. We called to help you schedule an appointment. ` +
+              `Please call us at ${clinic.callback} and we'll find a time that works.`;
+            if (clinic.selfBooking) {
+              const link = await createBookingLink(state.campaign_id, state.patient_id, clinic.id);
+              if (link) {
+                text =
+                  `Hi, this is ${clinic.name}. We tried to reach you about scheduling an ` +
+                  `appointment. Pick a time that works for you: ${link}. Reply STOP to opt out.`;
+              }
+            }
             await telnyx(`/messages`, {
               from: FROM_NUMBER,
               to: state.patient_phone,
               messaging_profile_id: MESSAGING_PROFILE_ID,
-              text:
-                `Hi, this is ${clinic.name}. We called to help you schedule an appointment. ` +
-                `Please call us at ${clinic.callback} and we'll find a time that works.`,
+              text,
             }).catch((e) => console.error("SMS failed", e));
           }
         }

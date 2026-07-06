@@ -31,6 +31,8 @@ const MESSAGING_PROFILE_ID = Deno.env.get("TELNYX_MESSAGING_PROFILE_ID") ?? "";
 const CLINIC_NAME_FALLBACK = Deno.env.get("CLINIC_NAME") ?? "your clinic";
 // Env default lead time; per-clinic clinics.sms_precall_lead_seconds overrides it.
 const LEAD_SECONDS = Number(Deno.env.get("SMS_PRECALL_LEAD_SECONDS") ?? "120");
+// Base URL for self-service booking links (/book/<token>). Unset → no link.
+const PORTAL_URL = (Deno.env.get("PORTAL_URL") ?? "").replace(/\/$/, "");
 
 function corsHeaders(): Record<string, string> {
   return {
@@ -199,15 +201,26 @@ async function processCampaign(campaign: Campaign, batchSize: number) {
 
     const clinicName = await clinicDisplayName(campaign.clinic_id);
     const mins = Math.max(1, Math.round(leadSeconds / 60));
+    // Self-booking link injection (§5), gated per-clinic. When enabled and a
+    // link can be minted, offer the self-serve path so booking can pre-empt the
+    // call (campaigns using this should prefer a longer lead, 5–10 min).
+    let bookingLink: string | null = null;
+    if (await clinicSelfBooking(campaign.clinic_id)) {
+      bookingLink = await createBookingLink(campaign.id, patient.id, campaign.clinic_id);
+    }
     try {
+      const baseText =
+        `Hi ${patient.first_name}, this is ${clinicName}. We'll call you ` +
+        `in about ${mins} minute${mins === 1 ? "" : "s"} from this number to help ` +
+        `schedule an appointment`;
+      const text = bookingLink
+        ? `${baseText} — or book yourself now: ${bookingLink}. Reply STOP to opt out.`
+        : `${baseText}. Reply STOP to opt out.`;
       await telnyx("/messages", {
         from: FROM_NUMBER,
         to: patient.phone,
         messaging_profile_id: MESSAGING_PROFILE_ID,
-        text:
-          `Hi ${patient.first_name}, this is ${clinicName}. We'll be calling you ` +
-          `in about ${mins} minute${mins === 1 ? "" : "s"} from this number to help ` +
-          `schedule an appointment. Reply STOP to opt out.`,
+        text,
       });
       await supabase.from("campaign_patients").update({
         status: "notified",
@@ -259,6 +272,82 @@ async function clinicDisplayName(clinicId: string | null): Promise<string> {
   } catch {
     return CLINIC_NAME_FALLBACK;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Self-service booking link (self-booking-link-spec §3/§5). Inlined here so
+// this function stays self-contained (no _shared import). The raw token lives
+// only in the URL; the DB stores only its SHA-256 hash, so a leaked database
+// never leaks usable links.
+// ---------------------------------------------------------------------------
+
+/** 128-bit random base64url token (~22 chars, fits one URL segment). */
+function generateBookingToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** SHA-256 hex of a raw token — the value stored in booking_links.token_hash. */
+async function hashBookingToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Create (or refresh) the ONE active booking link for a (campaign, patient) and
+ * return its public URL, or null if self-booking is unavailable (no PORTAL_URL
+ * or insert failed). Enforces "one active link per pair" by expiring priors.
+ */
+async function createBookingLink(
+  campaignId: string,
+  patientId: string,
+  clinicId: string | null,
+): Promise<string | null> {
+  if (!PORTAL_URL) return null;
+
+  const token = generateBookingToken();
+  const tokenHash = await hashBookingToken(token);
+
+  // Expire any prior active (unbooked, unexpired) links for this pair.
+  await supabase.from("booking_links")
+    .update({ expires_at: new Date().toISOString() })
+    .eq("campaign_id", campaignId)
+    .eq("patient_id", patientId)
+    .is("booked_appointment_id", null)
+    .gt("expires_at", new Date().toISOString());
+
+  const { error } = await supabase.from("booking_links").insert({
+    token_hash: tokenHash,
+    campaign_id: campaignId,
+    patient_id: patientId,
+    clinic_id: clinicId,
+    // expires_at defaults to now() + 7 days in the schema.
+  });
+  if (error) {
+    console.error("createBookingLink insert failed", error);
+    return null;
+  }
+  return `${PORTAL_URL}/book/${token}`;
+}
+
+// Per-clinic self-booking flag (§5). Default false (feature off). Cached per
+// invocation. Null clinic → off (we can't scope a link without a clinic).
+const clinicSelfBookingCache = new Map<string, boolean>();
+async function clinicSelfBooking(clinicId: string | null): Promise<boolean> {
+  if (!clinicId) return false;
+  const cached = clinicSelfBookingCache.get(clinicId);
+  if (cached !== undefined) return cached;
+  let enabled = false;
+  try {
+    const { data } = await supabase.from("clinics")
+      .select("self_booking_enabled").eq("id", clinicId).single();
+    enabled = data?.self_booking_enabled === true;
+  } catch { /* default off */ }
+  clinicSelfBookingCache.set(clinicId, enabled);
+  return enabled;
 }
 
 async function dialPatient(campaign: Campaign, row: QueueRow): Promise<boolean> {

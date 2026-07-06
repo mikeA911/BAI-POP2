@@ -31,3 +31,9 @@ verify_jwt = false
 # Telnyx AI Assistant tool webhooks — authenticated via x-carecall-secret.
 [functions.assistant-tools]
 verify_jwt = false
+
+# Public self-service booking API (/book/<token>). No Supabase JWT — the patient
+# is not a portal user. Guarded by the opaque token, per-token verification
+# lockout, and a per-IP rate limit inside the function (self-booking-link-spec §4).
+[functions.booking-api]
+verify_jwt = false

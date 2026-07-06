@@ -183,12 +183,38 @@ async function createAppointment(callControlId: string | undefined, args: Record
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
     idempotency_key: idempotencyKey,
+    source: "voice",
   }).select("id").single();
 
   if (error) {
     // Exclusion constraint = slot was just taken. Tell the AI to re-fetch.
     if (error.code === "23P01") {
       return json({ booked: false, reason: "slot_taken", say: "That time was just taken. Please fetch new options." });
+    }
+    // Cross-channel guard (one_active_appointment_per_campaign): the patient
+    // already holds an active appointment for this campaign — e.g. they booked
+    // via the self-service link while on the call. Return THAT appointment as an
+    // already-booked success ("You're already scheduled for …"), not an error.
+    if (error.code === "23505") {
+      const { data: active } = await supabase.from("appointments")
+        .select("id, starts_at")
+        .eq("patient_id", ctx.patient_id)
+        .eq("campaign_id", ctx.campaign_id)
+        .in("status", ["booked", "confirmed"])
+        .order("starts_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (active) {
+        await supabase.from("call_logs")
+          .update({ appointment_id: active.id, result: "booked" }).eq("id", ctx.id);
+        return json({
+          booked: true,
+          already_booked: true,
+          appointment_id: active.id,
+          spoken: speakable(active.starts_at, tz),
+          say: `You're already scheduled for ${speakable(active.starts_at, tz)}.`,
+        });
+      }
     }
     throw error;
   }
