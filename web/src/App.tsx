@@ -122,7 +122,9 @@ function Sidebar() {
       )}
 
       <div className="nav-spacer" />
-      <NavLink to="/settings/profile" title={session?.user?.email ?? undefined}>Profile</NavLink>
+      <div className="profile-link" data-tooltip={session?.user?.email ?? undefined}>
+        <NavLink to="/settings/profile">Profile</NavLink>
+      </div>
       <button className="signout" onClick={signOut}>Sign out</button>
     </nav>
   );
