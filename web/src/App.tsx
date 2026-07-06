@@ -84,8 +84,7 @@ function ClinicSwitcher() {
 }
 
 function Sidebar() {
-  const { role, signOut, displayName, session } = useSession();
-  const { activeClinic } = useClinic();
+  const { role, signOut, session } = useSession();
   const reviewCount = useReviewCount();
   const isClinicAdmin = roleAtLeast(role, "clinic_admin");
   const isAdmin = role === "admin";
@@ -125,10 +124,6 @@ function Sidebar() {
       <div className="nav-spacer" />
       <NavLink to="/settings/profile" title={session?.user?.email ?? undefined}>Profile</NavLink>
       <button className="signout" onClick={signOut}>Sign out</button>
-      <div className="nav-user">
-        {displayName}
-        {activeClinic && <div className="nav-clinic">{activeClinic.name}</div>}
-      </div>
     </nav>
   );
 }
