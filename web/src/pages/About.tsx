@@ -82,6 +82,21 @@ export default function About({ onClose }: { onClose: () => void }) {
         patient identities, and books real-time slots.
       </p>
 
+      <figure className="about-figure">
+        <picture>
+          <source srcSet="/workflow.webp" type="image/webp" />
+          <img
+            src="/workflow.png"
+            alt="CareCall workflow: staff set up and launch outreach campaigns, then the AI answers on a live connection, verifies patient identity, offers real-time slots, and books the appointment."
+            loading="lazy"
+          />
+        </picture>
+        <figcaption className="muted small">
+          From campaign launch to booked appointment — the management workflow
+          and the smart AI conversation.
+        </figcaption>
+      </figure>
+
       <section className="about-section">
         <h2>How it works</h2>
         <ol className="about-steps">

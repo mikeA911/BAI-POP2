@@ -132,6 +132,9 @@ label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
 .about-head h1 { margin-bottom: 2px; }
 .about-head p { margin: 0; }
 .about-lede { margin: 14px 0 0; }
+.about-figure { margin: 18px 0 0; }
+.about-figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.about-figure figcaption { margin-top: 8px; text-align: center; }
 .about-section { margin-top: 22px; }
 .about-section h2 { margin: 0 0 10px; }
 
