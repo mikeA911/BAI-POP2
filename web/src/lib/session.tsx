@@ -12,6 +12,9 @@ type SessionState = {
   avatarUrl: string | null;
   /** True when the account was created/reset with a temporary password. */
   forcePasswordChange: boolean;
+  /** True after following a "forgot password" email link, until a new password is set. */
+  passwordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -33,6 +36,7 @@ function readClaims(session: Session | null) {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   async function refresh() {
     const { data } = await supabase.auth.getSession();
@@ -44,7 +48,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      // Arriving via a "forgot password" email link: force the set-new-password flow.
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -54,8 +62,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     ...claims,
+    passwordRecovery,
+    clearPasswordRecovery: () => setPasswordRecovery(false),
     refresh,
-    signOut: async () => { await supabase.auth.signOut(); },
+    signOut: async () => { setPasswordRecovery(false); await supabase.auth.signOut(); },
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
