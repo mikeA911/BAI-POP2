@@ -203,7 +203,9 @@ export default function Dashboard() {
     }
   }
 
-  const headline = isAdmin ? "Platform overview" : activeClinic?.name ?? "Dashboard";
+  const headline = isAdmin
+    ? activeClinic ? `Platform overview — ${activeClinic.name}` : "Platform overview"
+    : activeClinic?.name ?? "Dashboard";
   const todayLabel = new Date().toLocaleDateString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });

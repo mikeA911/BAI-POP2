@@ -84,7 +84,7 @@ function ClinicSwitcher() {
 }
 
 function Sidebar() {
-  const { role, signOut, displayName } = useSession();
+  const { role, signOut, displayName, session } = useSession();
   const { activeClinic } = useClinic();
   const reviewCount = useReviewCount();
   const isClinicAdmin = roleAtLeast(role, "clinic_admin");
@@ -127,20 +127,10 @@ function Sidebar() {
       <button className="signout" onClick={signOut}>Sign out</button>
       <div className="nav-user">
         {displayName}
+        {session?.user?.email && <div className="nav-email">{session.user.email}</div>}
         {activeClinic && <div className="nav-clinic">{activeClinic.name}</div>}
       </div>
     </nav>
-  );
-}
-
-function AdminContextBanner() {
-  const { role } = useSession();
-  const { activeClinic } = useClinic();
-  if (role !== "admin" || !activeClinic) return null;
-  return (
-    <div className="context-banner">
-      Viewing clinic context: <strong>{activeClinic.name}</strong>
-    </div>
   );
 }
 
@@ -166,7 +156,6 @@ export default function App() {
     <div className="layout">
       <Sidebar />
       <main className="content">
-        <AdminContextBanner />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/about" element={<About />} />

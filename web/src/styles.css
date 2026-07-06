@@ -280,14 +280,12 @@ nav.sidebar a { display: flex; align-items: center; justify-content: space-betwe
 nav.sidebar .signout { background: transparent; color: #DCE6FB; border: 1px solid rgba(255,255,255,0.25); text-align: left; padding: 8px 12px; margin-top: 6px; }
 nav.sidebar .signout:hover { background: rgba(255,255,255,0.12); }
 .nav-user { color: #B7CCF6; font-size: 12px; margin-top: 10px; padding: 0 12px; }
+.nav-email { color: #DCE6FB; word-break: break-all; }
 .nav-clinic { color: #fff; font-weight: 600; }
 .clinic-switcher { margin-bottom: var(--sp-2); padding: 0 2px; }
 .clinic-switcher label { color: #B7CCF6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
 .clinic-switcher select { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.28); }
 .clinic-switcher select option { color: var(--ink); }
-
-/* Admin context banner — Healthcare Blue informational surface */
-.context-banner { background: #E4EDFC; color: var(--blue-dark); border: 1px solid #C3D6F8; border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: var(--sp-2); font-size: 13px; }
 
 /* Cards as links */
 .card-link { text-decoration: none; color: inherit; display: block; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
