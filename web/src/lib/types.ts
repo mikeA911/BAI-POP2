@@ -3,9 +3,24 @@ export type Role = "admin" | "clinic_admin" | "staff";
 export type CampaignStatus = "draft" | "scheduled" | "active" | "paused" | "completed";
 
 export type CampaignPatientStatus =
-  | "pending" | "calling" | "booked" | "declined" | "callback_requested"
+  | "pending" | "notified" | "calling" | "booked" | "declined" | "callback_requested"
   | "no_answer" | "voicemail" | "wrong_number" | "verification_failed"
   | "needs_human" | "resolved";
+
+// Human-friendly labels for campaign_patient statuses. Statuses not listed here
+// fall back to the raw value with underscores replaced by spaces.
+const STATUS_LABELS: Record<string, string> = {
+  notified: "Text sent",
+  callback_requested: "callback requested",
+  verification_failed: "verification failed",
+  no_answer: "no answer",
+  wrong_number: "wrong number",
+  needs_human: "needs review",
+};
+
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status.replace(/_/g, " ");
+}
 
 export type Clinic = {
   id: string;
@@ -14,6 +29,7 @@ export type Clinic = {
   timezone: string;
   calling_hours: Record<string, { start: string; end: string } | null>;
   sms_fallback: boolean;
+  sms_precall_lead_seconds: number | null;
   greeting_default: string | null;
   active: boolean;
   created_at: string;
@@ -30,6 +46,7 @@ export type Patient = {
   provider_id: string | null;
   notes: string | null;
   do_not_call: boolean;
+  sms_consent: boolean;
   active: boolean;
   created_at: string;
 };

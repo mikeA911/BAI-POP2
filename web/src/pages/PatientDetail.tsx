@@ -51,6 +51,7 @@ export default function PatientDetail() {
         <div>
           {patient.do_not_call && <span className="badge wrong_number">do not call</span>}
           {!patient.active && <span className="badge declined">inactive</span>}
+          {patient.sms_consent && <span className="badge notified">SMS consent</span>}
         </div>
       </div>
       <p className="muted"><Link to="/patients">← All patients</Link></p>
@@ -60,6 +61,7 @@ export default function PatientDetail() {
         <div className="kv"><span>Phone</span><strong>{patient.phone}</strong></div>
         <div className="kv"><span>Date of birth</span><strong>{patient.date_of_birth}</strong></div>
         <div className="kv"><span>Email</span><strong>{patient.email ?? "—"}</strong></div>
+        <div className="kv"><span>SMS consent</span><strong>{patient.sms_consent ? "Yes" : "No"}</strong></div>
         {patient.notes && <div className="kv"><span>Notes</span><strong>{patient.notes}</strong></div>}
 
         {canManage && (
@@ -67,6 +69,10 @@ export default function PatientDetail() {
             <button className={patient.do_not_call ? "secondary" : "danger"} disabled={busy}
                     onClick={() => patch({ do_not_call: !patient.do_not_call }, patient.do_not_call ? "Do-not-call cleared." : "Marked do-not-call.")}>
               {patient.do_not_call ? "Clear do-not-call" : "Set do-not-call"}
+            </button>
+            <button className="secondary" disabled={busy}
+                    onClick={() => patch({ sms_consent: !patient.sms_consent }, patient.sms_consent ? "SMS consent removed." : "SMS consent recorded.")}>
+              {patient.sms_consent ? "Remove SMS consent" : "Record SMS consent"}
             </button>
             <button className="secondary" disabled={busy}
                     onClick={() => patch({ active: !patient.active }, patient.active ? "Patient deactivated." : "Patient reactivated.")}>

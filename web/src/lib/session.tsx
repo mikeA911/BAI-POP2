@@ -83,3 +83,16 @@ export function roleAtLeast(role: Role | null, min: Role): boolean {
   if (!role) return false;
   return rank[role] >= rank[min];
 }
+
+/**
+ * UI label for a role (spec v1.2 D6). The internal key `clinic_admin` never
+ * changes — only the displayed label is "Provider".
+ */
+export function roleLabel(role: string): string {
+  switch (role) {
+    case "clinic_admin": return "Provider";
+    case "admin": return "Admin";
+    case "staff": return "Staff";
+    default: return role.replace(/_/g, " ");
+  }
+}

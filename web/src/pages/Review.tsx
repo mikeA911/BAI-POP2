@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { useClinic } from "../lib/clinic";
-import type { ReviewItem } from "../lib/types";
+import { statusLabel, type ReviewItem } from "../lib/types";
 
 type Row = ReviewItem & { call_summary?: string | null; call_log_id?: string | null };
 
@@ -70,9 +70,11 @@ export default function Review() {
 
   async function doNotCall(r: Row) {
     setBusy(key(r));
-    // Patient-level DNC + remove from active campaigns (§2.4).
+    // Patient-level DNC + remove from active campaigns (§2.4). Also revoke SMS
+    // consent — the review queue's DNC action is the application-level opt-out
+    // record for both voice and SMS (compliance note §4).
     const { error: e1 } = await supabase.from("patients")
-      .update({ do_not_call: true }).eq("id", r.patient_id);
+      .update({ do_not_call: true, sms_consent: false }).eq("id", r.patient_id);
     const { data: activeCamps } = await supabase.from("campaigns")
       .select("id").eq("clinic_id", activeClinicId!).in("status", ["draft", "scheduled", "active", "paused"]);
     const activeIds = (activeCamps ?? []).map((c: { id: string }) => c.id);
@@ -107,7 +109,7 @@ export default function Review() {
               </td>
               <td>{r.campaigns?.name ?? "—"}</td>
               <td>
-                <span className={`badge ${r.status}`}>{r.status.replace(/_/g, " ")}</span>
+                <span className={`badge ${r.status}`}>{statusLabel(r.status)}</span>
                 {r.flag_reason && <div className="muted small">{r.flag_reason}</div>}
               </td>
               <td>{new Date(r.updated_at).toLocaleString()}</td>

@@ -1,4 +1,10 @@
 // CareCall — user & clinic administration.
+// PATCHED 2026-07-06 (three changes, marked [FIX]):
+//   1. Clinic Admins can only reset/deactivate STAFF — not peer Clinic Admins
+//      (password reset is account takeover; spec matrix: "own clinic Staff").
+//   2. Users cannot deactivate themselves (prevents last-admin lockout).
+//   3. Simplified the role check in requireTargetInScope — the old
+//      startsWith("admin") condition worked by accident and read like a bug.
 //
 // Actions (POST { action, ...args }):
 //   create_user       — role + clinic_id. Clinic Admin may only create Staff in
@@ -56,14 +62,19 @@ function tempPassword(): string {
   return `${pick(4)}-${pick(4)}-${pick(4)}`;
 }
 
+// [FIX 1+3] Scope check for non-admin callers: target must be in the caller's
+// clinic AND must be Staff. Clinic Admins manage "own clinic Staff" (§1.3) —
+// they may not reset passwords for or deactivate peer Clinic Admins.
 async function requireTargetInScope(caller: Caller, userId: string) {
   const { data } = await supabase.auth.admin.getUserById(userId);
   const target = data?.user;
   if (!target) throw new Error("user not found");
-  const targetClinic = (target.app_metadata as Record<string, unknown>)?.clinic_id as string | undefined;
-  if (!caller.role.startsWith("admin") && !isAdmin(caller)) {
-    // clinic_admin: must be same clinic
+  const meta = (target.app_metadata ?? {}) as Record<string, unknown>;
+  const targetClinic = meta.clinic_id as string | undefined;
+  const targetRole = (meta.role as string) ?? "";
+  if (!isAdmin(caller)) {
     if (targetClinic !== caller.clinicId) throw new Error("forbidden: user in another clinic");
+    if (targetRole !== "staff") throw new Error("forbidden: clinic admins may only manage Staff accounts");
   }
   return target;
 }
@@ -98,7 +109,7 @@ async function listUsers(caller: Caller) {
 async function createUser(caller: Caller, body: Record<string, unknown>) {
   const email = String(body.email ?? "").trim().toLowerCase();
   const role = String(body.role ?? "staff") as "admin" | "clinic_admin" | "staff";
-  let clinicId = (body.clinic_id as string) ?? caller.clinicId;
+  let clinicId: string | null = (body.clinic_id as string | undefined) ?? caller.clinicId;
 
   if (!email) return json({ error: "email required" }, 400, corsHeaders());
   if (!["admin", "clinic_admin", "staff"].includes(role))
@@ -141,6 +152,13 @@ async function setRole(caller: Caller, body: Record<string, unknown>) {
   const clinicId = (body.clinic_id as string) ?? null;
   if (!userId || !["admin", "clinic_admin", "staff"].includes(role))
     return json({ error: "user_id and valid role required" }, 400, corsHeaders());
+
+  // [FIX 2] An admin demoting themselves is allowed only if they are not the
+  // last admin (same lockout class as self-deactivation).
+  if (userId === caller.userId && role !== "admin") {
+    const remaining = await countOtherAdmins(caller.userId);
+    if (remaining === 0) return json({ error: "cannot demote the last admin" }, 400, corsHeaders());
+  }
 
   const { data: existing } = await supabase.auth.admin.getUserById(userId);
   const prevMeta = (existing?.user?.app_metadata ?? {}) as Record<string, unknown>;
@@ -186,6 +204,13 @@ async function setBanned(caller: Caller, body: Record<string, unknown>, banned: 
   if (!isClinicAdmin(caller)) return json({ error: "forbidden" }, 403, corsHeaders());
   const userId = String(body.user_id ?? "");
   if (!userId) return json({ error: "user_id required" }, 400, corsHeaders());
+
+  // [FIX 2] No self-deactivation: prevents the last Admin locking out the
+  // whole platform (recovery would require dashboard SQL access).
+  if (banned && userId === caller.userId) {
+    return json({ error: "you cannot deactivate your own account" }, 400, corsHeaders());
+  }
+
   const target = await requireTargetInScope(caller, userId);
 
   // Supabase ban via banned_until (100y = deactivated; "none" reactivates).
@@ -200,6 +225,15 @@ async function setBanned(caller: Caller, body: Record<string, unknown>, banned: 
     targetType: "user", targetId: userId,
   });
   return json({ ok: true }, 200, corsHeaders());
+}
+
+async function countOtherAdmins(exceptUserId: string): Promise<number> {
+  const { data } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  return (data?.users ?? []).filter((u) => {
+    const meta = (u.app_metadata ?? {}) as Record<string, unknown>;
+    const bannedUntil = (u as unknown as { banned_until?: string }).banned_until;
+    return u.id !== exceptUserId && meta.role === "admin" && !bannedUntil;
+  }).length;
 }
 
 // ------------------------------------------------------------------

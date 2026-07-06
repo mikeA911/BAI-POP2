@@ -51,6 +51,14 @@ update patients set clinic_id = '00000000-0000-0000-0000-000000000001'
 where id between 'a0000000-0000-0000-0000-000000000001' and 'a0000000-0000-0000-0000-000000000010'
   and clinic_id is null;
 
+-- Give a couple of mock patients SMS consent so the pre-call text path is
+-- exercisable in dev; the rest dial directly (no consent → no text).
+update patients set sms_consent = true
+where id in (
+  'a0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000009'
+);
+
 -- ============================================================
 -- CAMPAIGNS (2 active, 1 older)
 -- ============================================================

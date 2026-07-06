@@ -3,11 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { callFunction } from "../lib/api";
 import { useSession, roleAtLeast } from "../lib/session";
-import type { Campaign, CampaignStat, CampaignStatus } from "../lib/types";
+import { statusLabel, type Campaign, type CampaignStat, type CampaignStatus } from "../lib/types";
 
 type PatientRow = {
   patient_id: string; status: string; attempts: number; last_attempt_at: string | null;
-  flag_reason: string | null; updated_at: string;
+  flag_reason: string | null; updated_at: string; dial_after: string | null;
   patients?: { first_name: string; last_name: string; phone: string };
 };
 type DebugLog = {
@@ -36,7 +36,7 @@ export default function CampaignDetail() {
       supabase.from("campaigns").select("*").eq("id", id).single(),
       supabase.from("campaign_stats").select("*").eq("campaign_id", id).maybeSingle(),
       supabase.from("campaign_patients")
-        .select("patient_id, status, attempts, last_attempt_at, flag_reason, updated_at, patients(first_name, last_name, phone)")
+        .select("patient_id, status, attempts, last_attempt_at, flag_reason, updated_at, dial_after, patients(first_name, last_name, phone)")
         .eq("campaign_id", id).order("updated_at", { ascending: false }),
       supabase.from("call_logs")
         .select("id, started_at, amd_result, verified, verification_attempts, result, duration_seconds, patients(first_name, last_name)")
@@ -143,7 +143,13 @@ export default function CampaignDetail() {
             {patients.map((r) => (
               <tr key={r.patient_id}>
                 <td><Link to={`/patients/${r.patient_id}`}>{r.patients ? `${r.patients.first_name} ${r.patients.last_name}` : r.patient_id.slice(0, 8)}</Link></td>
-                <td><span className={`badge ${r.status}`}>{r.status.replace(/_/g, " ")}</span>{r.flag_reason && <div className="muted small">{r.flag_reason}</div>}</td>
+                <td>
+                  <span className={`badge ${r.status}`}>{statusLabel(r.status)}</span>
+                  {r.status === "notified" && r.dial_after && (
+                    <div className="muted small">{dialCountdown(r.dial_after)}</div>
+                  )}
+                  {r.flag_reason && <div className="muted small">{r.flag_reason}</div>}
+                </td>
                 <td>{r.attempts}</td>
                 <td>{r.last_attempt_at ? new Date(r.last_attempt_at).toLocaleString() : "—"}</td>
               </tr>
@@ -171,4 +177,12 @@ export default function CampaignDetail() {
       )}
     </>
   );
+}
+
+/** Friendly countdown for a notified patient's scheduled dial time. */
+function dialCountdown(dialAfter: string): string {
+  const ms = new Date(dialAfter).getTime() - Date.now();
+  if (ms <= 0) return "calling shortly";
+  const mins = Math.round(ms / 60000);
+  return mins <= 1 ? "calling in ~1 min" : `calling in ~${mins} min`;
 }

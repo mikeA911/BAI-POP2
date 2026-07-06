@@ -1,6 +1,8 @@
 // CareCall — Telnyx AI Assistant tool webhooks.
-// One endpoint, dispatched by ?tool=<name>. Register each tool in the Telnyx
-// assistant as a webhook tool pointing here (see telnyx/tools.json).
+// MERGED 2026-07-06: dev-team multi-clinic version (clinicTz via clinics join)
+// + fix: clinic timezone is now passed to slot GENERATION (p_tz), not only to
+// spoken formatting. Without p_tz, get_available_slots silently used the SQL
+// default timezone — invisible with one Dallas clinic, wrong for clinic #2.
 //
 // Security model:
 //  - The AI is NEVER given the patient's DOB on file. It collects a stated DOB
@@ -13,9 +15,11 @@ import { supabase, json, checkToolSecret, speakable } from "../_shared/lib.ts";
 const DEFAULT_CLINIC_TZ = Deno.env.get("CLINIC_TZ") ?? "America/Chicago";
 const MAX_VERIFY_ATTEMPTS = 2; // initial attempt + one retry
 
-/** Resolve the clinic timezone for a call context, falling back to the env default (§5). */
-function clinicTz(ctx: { clinics?: { timezone?: string } | null }): string {
-  return ctx.clinics?.timezone ?? DEFAULT_CLINIC_TZ;
+/** Resolve the clinic timezone for a call context, falling back to the env default (§5).
+ *  Tolerates PostgREST returning the joined clinic as object OR single-element array. */
+function clinicTz(ctx: { clinics?: { timezone?: string } | { timezone?: string }[] | null }): string {
+  const c = Array.isArray(ctx.clinics) ? ctx.clinics[0] : ctx.clinics;
+  return c?.timezone ?? DEFAULT_CLINIC_TZ;
 }
 
 Deno.serve(async (req) => {
@@ -61,7 +65,7 @@ async function callContext(callControlId?: string) {
 // ------------------------------------------------------------------
 async function verifyPatient(callControlId: string | undefined, args: Record<string, string>) {
   const ctx = await callContext(callControlId);
-  const patient = ctx.patients as { date_of_birth: string; first_name: string };
+  const patient = ctx.patients as unknown as { date_of_birth: string; first_name: string };
 
   if (ctx.verification_attempts >= MAX_VERIFY_ATTEMPTS) {
     return json({ match: false, locked: true });
@@ -88,8 +92,7 @@ async function verifyPatient(callControlId: string | undefined, args: Record<str
 
 // ------------------------------------------------------------------
 // get_appointment_slots — progressive disclosure.
-// granularity: "weeks" → distinct upcoming days grouped by week
-//              "days"  → available days within a given week
+// granularity: "days"  → up to 3 available days
 //              "times" → up to 3 concrete times on a given day
 // Returns speech-ready strings so the AI never invents times.
 // ------------------------------------------------------------------
@@ -97,22 +100,25 @@ async function getSlots(callControlId: string | undefined, args: Record<string, 
   const ctx = await callContext(callControlId);
   if (!ctx.verified) return json({ error: "patient not verified", say: "Please verify the patient first." }, 403);
 
-  const campaign = ctx.campaigns as { provider_id: string | null };
-  const patient = ctx.patients as { provider_id: string | null };
+  const campaign = ctx.campaigns as unknown as { provider_id: string | null };
+  const patient = ctx.patients as unknown as { provider_id: string | null };
   const providerId = campaign.provider_id ?? patient.provider_id;
   if (!providerId) return json({ slots: [], say: "No provider is configured for this patient." });
+
+  // Resolve clinic timezone BEFORE the RPC: it drives slot generation, not
+  // just formatting.
+  const tz = clinicTz(ctx);
 
   const { data: slots, error } = await supabase.rpc("get_available_slots", {
     p_provider_id: providerId,
     p_from: args.from_date ?? undefined,
     p_days: args.days ? Number(args.days) : 14,
     p_limit: 60,
+    p_tz: tz, // slots are generated in clinic-local wall-clock time
   });
   if (error) throw error;
 
   const granularity = args.granularity ?? "times";
-
-  const tz = clinicTz(ctx);
 
   if (granularity === "days") {
     const seen = new Set<string>();
@@ -155,8 +161,8 @@ async function createAppointment(callControlId: string | undefined, args: Record
   if (!ctx.verified) return json({ error: "patient not verified" }, 403);
   if (!args.slot_start) return json({ error: "slot_start required" }, 400);
 
-  const campaign = ctx.campaigns as { provider_id: string | null; slot_length_minutes: number };
-  const patient = ctx.patients as { provider_id: string | null };
+  const campaign = ctx.campaigns as unknown as { provider_id: string | null; slot_length_minutes: number };
+  const patient = ctx.patients as unknown as { provider_id: string | null };
   const providerId = campaign.provider_id ?? patient.provider_id!;
   const startsAt = new Date(args.slot_start);
   const endsAt = new Date(startsAt.getTime() + (campaign.slot_length_minutes ?? 30) * 60_000);

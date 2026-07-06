@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useSession, roleAtLeast } from "../lib/session";
 import { useClinic } from "../lib/clinic";
-import type { AuditEntry, Provider } from "../lib/types";
+import { statusLabel, type AuditEntry, type Provider } from "../lib/types";
 
 type LiveRow = {
   campaign_id: string; patient_id: string; status: string; updated_at: string;
@@ -374,7 +374,7 @@ export default function Dashboard() {
           {feed.map((r) => (
             <tr key={`${r.campaign_id}-${r.patient_id}`}>
               <td>{r.patients ? `${r.patients.first_name} ${r.patients.last_name}` : r.patient_id.slice(0, 8)}</td>
-              <td><span className={`badge ${r.status}`}>{r.status.replace(/_/g, " ")}</span></td>
+              <td><span className={`badge ${r.status}`}>{statusLabel(r.status)}</span></td>
               <td>{new Date(r.updated_at).toLocaleTimeString()}</td>
             </tr>
           ))}

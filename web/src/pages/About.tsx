@@ -42,7 +42,7 @@ const ROLES = [
     body: "Manages clinics, all users, and global settings. Can enter any clinic context.",
   },
   {
-    name: "Clinic Admin",
+    name: "Provider",
     scope: "One clinic",
     body: "Runs the clinic's outreach: patients, clinicians, campaigns, settings, and Staff users.",
   },

@@ -75,6 +75,7 @@ export default function ClinicSettings() {
       timezone: clinic.timezone,
       calling_hours: hours,
       sms_fallback: clinic.sms_fallback,
+      sms_precall_lead_seconds: clinic.sms_precall_lead_seconds,
       greeting_default: clinic.greeting_default,
     }).eq("id", clinic.id);
     setSaving(false);
@@ -109,6 +110,34 @@ export default function ClinicSettings() {
                  onChange={(e) => setClinic({ ...clinic, sms_fallback: e.target.checked })} />
           Send SMS fallback when a call reaches voicemail
         </label>
+
+        <h2>Pre-call text message</h2>
+        <p className="muted small">
+          Text patients a heads-up a couple of minutes before the AI calls, so a
+          text from this number arrives first and improves answer rates. Requires
+          patient SMS consent. Turn off to call without a pre-call text.
+        </p>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="checkbox" style={{ width: "auto" }}
+                 checked={(clinic.sms_precall_lead_seconds ?? 0) > 0}
+                 onChange={(e) => setClinic({
+                   ...clinic,
+                   // Enabling defaults to 120s; disabling stores 0 (off for this clinic).
+                   sms_precall_lead_seconds: e.target.checked ? (clinic.sms_precall_lead_seconds || 120) : 0,
+                 })} />
+          Send a pre-call text message
+        </label>
+        {(clinic.sms_precall_lead_seconds ?? 0) > 0 && (
+          <>
+            <label htmlFor="lead-secs">Lead time before the call (seconds, 60–600)</label>
+            <input id="lead-secs" type="number" min={60} max={600} step={30}
+                   value={clinic.sms_precall_lead_seconds ?? 120}
+                   onChange={(e) => setClinic({
+                     ...clinic,
+                     sms_precall_lead_seconds: Math.min(600, Math.max(60, Number(e.target.value) || 120)),
+                   })} />
+          </>
+        )}
 
         <h2>Calling hours (clinic-local)</h2>
         <p className="muted small">Outbound calls only fire inside these windows. Days left closed are never dialed.</p>

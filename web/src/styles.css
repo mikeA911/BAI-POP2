@@ -115,6 +115,7 @@ tbody tr:hover td { background: rgba(26,86,219,0.03); }
 .badge.declined, .badge.voicemail { background: #F0F1F3; color: var(--grey); }/* Declined/VM — Neutral Grey*/
 .badge.verification_failed, .badge.needs_human { background: #E9E7FB; color: var(--indigo); } /* Human Intervention — Indigo */
 .badge.callback_requested { background: #E4EDFC; color: var(--blue); }
+.badge.notified { background: #E4EDFC; color: var(--blue); }                  /* Pre-call text sent — Blue  */
 
 /* Primary action — Healthcare Blue solid (guideline §8) */
 button, .btn {

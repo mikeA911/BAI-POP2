@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { callFunction } from "../../lib/api";
-import { useSession } from "../../lib/session";
+import { useSession, roleLabel } from "../../lib/session";
 
 type PortalUser = {
   id: string; email: string; role: string; clinic_id: string | null;
@@ -73,11 +73,11 @@ export default function Users() {
             <label>Role</label>
             <select value={newRole} onChange={(e) => setNewRole(e.target.value as "staff" | "clinic_admin")}>
               <option value="staff">Staff</option>
-              <option value="clinic_admin">Clinic Admin</option>
+              <option value="clinic_admin">Provider</option>
             </select>
           </>
         )}
-        {!isAdmin && <p className="muted small">Clinic Admins can invite Staff only. Creating Clinic Admins is Admin-only.</p>}
+        {!isAdmin && <p className="muted small">Providers can invite Staff only. Creating Providers is Admin-only.</p>}
         <div style={{ marginTop: 10 }}>
           <button onClick={invite} disabled={busy || !email}>Invite</button>
         </div>
@@ -90,7 +90,7 @@ export default function Users() {
           {users.map((u) => (
             <tr key={u.id} className={u.deactivated ? "row-muted" : ""}>
               <td>{u.email}</td>
-              <td>{u.role.replace(/_/g, " ")}</td>
+              <td>{roleLabel(u.role)}</td>
               <td>{u.deactivated ? <span className="badge declined">deactivated</span> : <span className="badge booked">active</span>}</td>
               <td>{u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "never"}</td>
               <td>

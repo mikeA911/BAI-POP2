@@ -8,8 +8,13 @@ import type { Patient, Campaign } from "../lib/types";
 
 type ParsedRow = {
   first_name: string; last_name: string; phone: string; date_of_birth: string;
-  email: string | null; notes: string | null; error?: string;
+  email: string | null; notes: string | null; sms_consent: boolean; error?: string;
 };
+
+/** Parse a CSV truthy cell: true / 1 / yes (case-insensitive) → true. */
+function parseBool(raw?: string): boolean {
+  return ["true", "1", "yes", "y"].includes((raw ?? "").trim().toLowerCase());
+}
 
 export default function Patients() {
   const { role } = useSession();
@@ -21,7 +26,7 @@ export default function Patients() {
   const [targetCampaign, setTargetCampaign] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState("");
-  const [form, setForm] = useState({ first_name: "", last_name: "", phone: "", date_of_birth: "" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", phone: "", date_of_birth: "", sms_consent: false });
   const [preview, setPreview] = useState<ParsedRow[] | null>(null);
 
   const load = useCallback(async () => {
@@ -51,7 +56,8 @@ export default function Patients() {
           else if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) error = "DOB must be YYYY-MM-DD";
           return {
             first_name, last_name: (r.last_name ?? "").trim(), phone, date_of_birth: dob,
-            email: r.email?.trim() || null, notes: r.notes?.trim() || null, error,
+            email: r.email?.trim() || null, notes: r.notes?.trim() || null,
+            sms_consent: parseBool(r.sms_consent), error,
           };
         });
         setPreview(rows);
@@ -66,6 +72,7 @@ export default function Patients() {
       clinic_id: activeClinicId,
       first_name: r.first_name, last_name: r.last_name, phone: r.phone,
       date_of_birth: r.date_of_birth, email: r.email, notes: r.notes,
+      sms_consent: r.sms_consent,
     }));
     if (!valid.length) { setMsg("No valid rows to import."); return; }
     const { error } = await supabase.from("patients")
@@ -79,7 +86,7 @@ export default function Patients() {
     const { error } = await supabase.from("patients")
       .insert({ ...form, clinic_id: activeClinicId, phone: normalizePhone(form.phone) });
     setMsg(error ? `Failed: ${error.message}` : "Patient added.");
-    setForm({ first_name: "", last_name: "", phone: "", date_of_birth: "" });
+    setForm({ first_name: "", last_name: "", phone: "", date_of_birth: "", sms_consent: false });
     load();
   }
 
@@ -108,7 +115,7 @@ export default function Patients() {
 
       {canManage && (
         <div className="form-card">
-          <label htmlFor="csv">Import CSV (first_name, last_name, phone, date_of_birth[, email, notes])</label>
+          <label htmlFor="csv">Import CSV (first_name, last_name, phone, date_of_birth[, email, notes, sms_consent])</label>
           <input id="csv" type="file" accept=".csv"
                  onChange={(e) => e.target.files?.[0] && onCsv(e.target.files[0])} />
 
@@ -117,7 +124,7 @@ export default function Patients() {
               <p><strong>Dry run:</strong> {validCount} valid, {errorCount} with errors.</p>
               <div className="scroll-box">
                 <table>
-                  <thead><tr><th>Row</th><th>Name</th><th>Phone</th><th>DOB</th><th>Issue</th></tr></thead>
+                  <thead><tr><th>Row</th><th>Name</th><th>Phone</th><th>DOB</th><th>SMS consent</th><th>Issue</th></tr></thead>
                   <tbody>
                     {preview.map((r, i) => (
                       <tr key={i} className={r.error ? "row-error" : ""}>
@@ -125,6 +132,7 @@ export default function Patients() {
                         <td>{r.first_name} {r.last_name}</td>
                         <td>{r.phone}</td>
                         <td>{r.date_of_birth}</td>
+                        <td>{r.sms_consent ? "yes" : "no"}</td>
                         <td>{r.error ?? "ok"}</td>
                       </tr>
                     ))}
@@ -145,6 +153,11 @@ export default function Patients() {
             <input placeholder="Phone (+1…)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <input placeholder="DOB YYYY-MM-DD" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
           </div>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+            <input type="checkbox" style={{ width: "auto" }} checked={form.sms_consent}
+                   onChange={(e) => setForm({ ...form, sms_consent: e.target.checked })} />
+            Patient consents to SMS (pre-call text & reminders)
+          </label>
           <div style={{ marginTop: 10 }}>
             <button className="secondary" onClick={addOne}
                     disabled={!form.first_name || !form.phone || !form.date_of_birth}>Add patient</button>
@@ -175,6 +188,7 @@ export default function Patients() {
               <td>
                 {p.do_not_call && <span className="badge wrong_number">do not call</span>}
                 {!p.active && <span className="badge declined">inactive</span>}
+                {p.sms_consent && <span className="badge notified">SMS ok</span>}
               </td>
             </tr>
           ))}
