@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useSession, roleAtLeast } from "../lib/session";
@@ -40,10 +40,9 @@ export default function Dashboard() {
     clinics: 0, patientsOnFile: 0, inCampaign: 0, needsReview: 0,
   });
 
-  // Hero: providers panel + stats reveal
+  // Hero: providers panel
   const [showProviders, setShowProviders] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
-  const statsRef = useRef<HTMLDivElement>(null);
 
   // Window 5: appointment slots (available + booked)
   const [slots, setSlots] = useState<SlotRow[]>([]);
@@ -169,10 +168,6 @@ export default function Dashboard() {
     return [...map.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [slots]);
 
-  function revealStats() {
-    statsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
   function toggleProviders() {
     setShowProviders((v) => !v);
   }
@@ -209,9 +204,28 @@ export default function Dashboard() {
   }
 
   const headline = isAdmin ? "Platform overview" : activeClinic?.name ?? "Dashboard";
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
 
   return (
     <>
+      {/* ---------- Status banner ---------- */}
+      <div className="status-banner" role="status">
+        <div className="sb-group">
+          <span className="sb-status"><span className="sb-dot" aria-hidden />Network Servers Online</span>
+          <span className="sb-sep" aria-hidden>·</span>
+          <span className="sb-clinic">{headline}</span>
+        </div>
+        <div className="sb-group">
+          <span className="sb-date">{todayLabel}</span>
+          <span className="sb-sep" aria-hidden>·</span>
+          <span className="sb-support">
+            Support <a href="tel:+16154232722">+1 (615) 423-2722</a>
+          </span>
+        </div>
+      </div>
+
       {/* ---------- Hero header ---------- */}
       <section className="hero">
         <span className="hero-pill"><span className="dot" aria-hidden />Modernized Clinical Care</span>
@@ -222,8 +236,7 @@ export default function Dashboard() {
           appointment scheduling — all grounded in your verified Supabase data.
         </p>
         <div className="hero-actions">
-          <button className="hero-btn primary" onClick={revealStats}>Stats</button>
-          <button className="hero-btn" onClick={toggleProviders}>Meet our Providers</button>
+          <button className="hero-btn primary" onClick={toggleProviders}>Meet our Providers</button>
           <button className="hero-btn" onClick={() => navigate("/patients")}>Patient Management</button>
           <button className="hero-btn" onClick={() => navigate("/campaigns")}>Campaigns</button>
           <button className="hero-btn" onClick={() => navigate("/review")}>Check Clinic Wait Queue</button>
@@ -254,7 +267,7 @@ export default function Dashboard() {
       )}
 
       {/* ---------- Scorecards (Stats) ---------- */}
-      <div ref={statsRef} className="cards">
+      <div className="cards">
         {isAdmin && (
           <div className="card"><div className="num">{cards.clinics}</div><div className="lbl">Clinics</div></div>
         )}

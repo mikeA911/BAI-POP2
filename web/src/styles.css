@@ -376,6 +376,31 @@ a.btn { display: inline-block; text-decoration: none; }
 .avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ============================================================
+   Dashboard status banner (above the hero)
+   ============================================================ */
+.status-banner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 10px 16px; margin-bottom: var(--sp-2);
+  font-size: 13px; color: var(--muted);
+}
+.status-banner .sb-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.status-banner .sb-sep { color: var(--line); }
+.status-banner .sb-clinic { font-weight: 600; color: var(--ink); }
+.status-banner .sb-date { color: var(--ink); }
+.status-banner .sb-status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--teal-dark); }
+.status-banner .sb-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--teal);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.18);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .status-banner .sb-dot { animation: none; } }
+.status-banner .sb-support a { color: var(--blue); font-weight: 600; text-decoration: none; }
+.status-banner .sb-support a:hover { text-decoration: underline; }
+
+/* ============================================================
    Dashboard hero header (Healthcare Blue palette)
    ============================================================ */
 .hero {
