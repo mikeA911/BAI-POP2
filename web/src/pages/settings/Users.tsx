@@ -55,6 +55,18 @@ export default function Users() {
     load();
   }
 
+  async function changeRole(u: PortalUser, role: string) {
+    if (role === u.role) return;
+    setBusy(true); setTempPw(null);
+    const { data, error } = await callFunction<{ note?: string }>("admin-manage", {
+      action: "set_role", user_id: u.id, role, clinic_id: u.clinic_id,
+    });
+    setBusy(false);
+    if (error) { setMsg(error); return; }
+    setMsg(`Role for ${u.email} changed to ${roleLabel(role)}. ${data?.note ?? ""}`.trim());
+    load();
+  }
+
   return (
     <>
       <h1>Users</h1>
@@ -90,7 +102,17 @@ export default function Users() {
           {users.map((u) => (
             <tr key={u.id} className={u.deactivated ? "row-muted" : ""}>
               <td>{u.email}</td>
-              <td>{roleLabel(u.role)}</td>
+              <td>
+                {isAdmin ? (
+                  <select value={u.role} disabled={busy} onChange={(e) => changeRole(u, e.target.value)}>
+                    <option value="staff">Staff</option>
+                    <option value="clinic_admin">Provider</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                ) : (
+                  roleLabel(u.role)
+                )}
+              </td>
               <td>{u.deactivated ? <span className="badge declined">deactivated</span> : <span className="badge booked">active</span>}</td>
               <td>{u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "never"}</td>
               <td>

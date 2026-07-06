@@ -11,6 +11,9 @@
 //                        their own clinic; Admin may create any role/clinic.
 //   set_role          — Admin only.
 //   reset_password    — set a temporary password + force-change flag.
+//   clear_force_password_change — caller clears their OWN force-change flag
+//                        after choosing a new password (app_metadata is not
+//                        client-writable, so this must happen server-side).
 //   deactivate_user   — ban (banned_until far future), blocks token refresh.
 //   reactivate_user   — lift the ban.
 //   create_clinic     — Admin only.
@@ -40,6 +43,7 @@ Deno.serve(async (req) => {
       case "create_user":     return await createUser(caller, body);
       case "set_role":        return await setRole(caller, body);
       case "reset_password":  return await resetPassword(caller, body);
+      case "clear_force_password_change": return await clearForcePasswordChange(caller);
       case "deactivate_user": return await setBanned(caller, body, true);
       case "reactivate_user": return await setBanned(caller, body, false);
       case "create_clinic":   return await createClinic(caller, body);
@@ -197,6 +201,34 @@ async function resetPassword(caller: Caller, body: Record<string, unknown>) {
     targetType: "user", targetId: userId,
   });
   return json({ ok: true, temporary_password: password }, 200, corsHeaders());
+}
+
+// ------------------------------------------------------------------
+// Caller clears their OWN force-change flag. Called by the client right after
+// the user picks a new password. app_metadata is never client-writable, so the
+// flag can only be cleared here (previously it was never cleared, which left
+// users stuck on the "set new password" screen forever).
+async function clearForcePasswordChange(caller: Caller) {
+  const { data: existing } = await supabase.auth.admin.getUserById(caller.userId);
+  const prevMeta = (existing?.user?.app_metadata ?? {}) as Record<string, unknown>;
+  if (prevMeta[FORCE_CHANGE_KEY] !== true) {
+    // Nothing to do — flag already absent/false. Idempotent success.
+    return json({ ok: true }, 200, corsHeaders());
+  }
+  const nextMeta = { ...prevMeta };
+  delete nextMeta[FORCE_CHANGE_KEY];
+
+  const { error } = await supabase.auth.admin.updateUserById(caller.userId, {
+    app_metadata: nextMeta,
+  });
+  if (error) return json({ error: error.message }, 400, corsHeaders());
+
+  await audit({
+    clinicId: (prevMeta.clinic_id as string) ?? caller.clinicId,
+    actorUserId: caller.userId, action: "password_change_completed",
+    targetType: "user", targetId: caller.userId,
+  });
+  return json({ ok: true }, 200, corsHeaders());
 }
 
 // ------------------------------------------------------------------

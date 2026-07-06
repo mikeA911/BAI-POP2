@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSession } from "../lib/session";
+import { callFunction } from "../lib/api";
 import About from "./About";
 
 export default function Login() {
-  const { forcePasswordChange, passwordRecovery, clearPasswordRecovery, session, refresh } = useSession();
+  const { forcePasswordChange, passwordRecovery, clearPasswordRecovery, session, refresh, signOut } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -53,21 +54,36 @@ export default function Login() {
     if (newPassword.length < 10) { setErr("Use at least 10 characters."); return; }
     if (newPassword !== confirm) { setErr("Passwords do not match."); return; }
     setBusy(true);
-    // Clear the force-change flag in user_metadata; app_metadata flag remains
-    // for auditing but the UI keys off a cleared local flag after re-auth.
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-      data: { force_password_change_done: true },
-    });
-    if (!error) {
-      // The app_metadata force flag is only cleared server-side on next admin
-      // action; for the session we mark it done and refresh.
-      clearPasswordRecovery();
-      await supabase.auth.refreshSession();
-      await refresh();
+
+    // 1. Update the password via Supabase Auth.
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { setBusy(false); setErr(error.message); return; }
+
+    // 2. Clear the server-side force-change flag. app_metadata is not
+    //    client-writable, so this must go through the edge function; otherwise
+    //    the flag stays true and the user is bounced back here on every visit.
+    if (forcePasswordChange) {
+      const { error: clearErr } = await callFunction("admin-manage", {
+        action: "clear_force_password_change",
+      });
+      if (clearErr) { setBusy(false); setErr(clearErr); return; }
     }
+
+    // 3. Refresh the session so the new token no longer carries the flag.
+    clearPasswordRecovery();
+    await supabase.auth.refreshSession();
+    await refresh();
     setBusy(false);
-    if (error) setErr(error.message);
+  }
+
+  async function cancelChange() {
+    setErr("");
+    setBusy(true);
+    // No safe way to stay signed in while the force-change flag is set, so
+    // cancelling returns the user to the sign-in screen.
+    clearPasswordRecovery();
+    await signOut();
+    setBusy(false);
   }
 
   // The About panel is wider than the auth card and manages its own header.
@@ -107,6 +123,9 @@ export default function Login() {
                 {busy ? "Saving…" : "Save password"}
               </button>
             </form>
+            <button type="button" className="link" onClick={cancelChange} disabled={busy} style={{ marginTop: 12 }}>
+              Cancel and sign out
+            </button>
           </>
         ) : mode === "forgot" ? (
           <>
