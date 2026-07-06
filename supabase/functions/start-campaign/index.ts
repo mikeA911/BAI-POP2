@@ -7,27 +7,30 @@
 // schedule this function with pg_cron / Supabase scheduled functions and add
 // concurrency + calling-hours guards.
 
-import { supabase, telnyx, json } from "../_shared/lib.ts";
+import { supabase, telnyx, json, corsHeaders } from "../_shared/lib.ts";
 
 const CONNECTION_ID = Deno.env.get("TELNYX_CONNECTION_ID")!; // Call Control App ID
 const FROM_NUMBER = Deno.env.get("TELNYX_FROM_NUMBER")!;
 
 Deno.serve(async (req) => {
+  // Browsers send a CORS preflight (OPTIONS) before the POST from the portal.
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
+
   // Require a logged-in staff member (anon key + user JWT from the portal)
   const auth = req.headers.get("Authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+  if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401, corsHeaders());
 
   const { campaign_id, batch_size = 3 } = await req.json();
-  if (!campaign_id) return json({ error: "campaign_id required" }, 400);
+  if (!campaign_id) return json({ error: "campaign_id required" }, 400, corsHeaders());
 
   const { data: campaign } = await supabase.from("campaigns")
     .select("*").eq("id", campaign_id).single();
-  if (!campaign) return json({ error: "campaign not found" }, 404);
+  if (!campaign) return json({ error: "campaign not found" }, 404, corsHeaders());
 
   // Status machine (§2.5): only 'active' campaigns dial. Pause is respected
   // immediately because the dialer refuses to pick up new patients here.
   if (campaign.status !== "active") {
-    return json({ started: 0, message: `campaign is ${campaign.status}, not active` });
+    return json({ started: 0, message: `campaign is ${campaign.status}, not active` }, 200, corsHeaders());
   }
 
   // Calling-hours gate (§4.4): exit quietly outside the clinic's local window.
@@ -35,7 +38,7 @@ Deno.serve(async (req) => {
     p_clinic_id: campaign.clinic_id,
   });
   if (withinHours === false) {
-    return json({ started: 0, message: "outside clinic calling hours" });
+    return json({ started: 0, message: "outside clinic calling hours" }, 200, corsHeaders());
   }
 
   // Pending patients + callbacks that are now due.
@@ -57,7 +60,7 @@ Deno.serve(async (req) => {
     if (!count) {
       await supabase.from("campaigns").update({ status: "completed" }).eq("id", campaign_id);
     }
-    return json({ started: 0, message: "no pending patients" });
+    return json({ started: 0, message: "no pending patients" }, 200, corsHeaders());
   }
 
   let started = 0;
@@ -72,6 +75,10 @@ Deno.serve(async (req) => {
       patient_phone: patient.phone,
       patient_first_name: patient.first_name,
       campaign_context: campaign.greeting_context,
+      // The appointment/campaign type is NOT sent to the AI — it only selects
+      // which Telnyx assistant answers. That assistant already embeds the
+      // type-specific behaviour in its own prompt.
+      assistant_id: campaign.telnyx_assistant_id ?? null,
     }));
 
     try {
@@ -105,5 +112,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ started });
+  return json({ started }, 200, corsHeaders());
 });

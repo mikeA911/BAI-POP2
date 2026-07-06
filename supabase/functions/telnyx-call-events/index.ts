@@ -60,9 +60,14 @@ Deno.serve(async (req) => {
           // Treat not_sure as human — worst case the AI greets a voicemail and
           // the silence-timeout ends the call. Start the AI assistant.
           const clinic = await clinicForCall(ccid);
+          // Route to the per-appointment-type assistant chosen at campaign
+          // creation, falling back to the env default when none is set.
+          const assistantId = state?.assistant_id || ASSISTANT_ID;
           await telnyx(`/calls/${ccid}/actions/ai_assistant_start`, {
-            assistant: { id: ASSISTANT_ID },
-            // Give the assistant per-call variables (never the DOB on file)
+            assistant: { id: assistantId },
+            // Give the assistant per-call variables (never the DOB on file).
+            // appointment_type is intentionally omitted: the chosen assistant
+            // already encodes the type-specific behaviour in its own prompt.
             dynamic_variables: {
               patient_first_name: state?.patient_first_name ?? "",
               campaign_context: state?.campaign_context ?? "",

@@ -1,0 +1,33 @@
+# Supabase project configuration for CareCall.
+# Deploy edge functions from this directory (the one containing `supabase/`)
+# with the CLI so the shared `functions/_shared/lib.ts` module is bundled:
+#   supabase functions deploy start-campaign
+#
+# project_id is the Supabase project ref (used by `supabase link`).
+project_id = "ckuzdngupcxugvjqoyuo"
+
+# ---------------------------------------------------------------------------
+# Edge functions
+# `verify_jwt` gates the Supabase API gateway BEFORE the function runs.
+#  - Portal-called functions keep it on and rely on the user JWT.
+#  - Webhook/cron-called functions turn it off and enforce their own auth
+#    (Telnyx secret header, or the service-role bearer check in code).
+# ---------------------------------------------------------------------------
+
+# Portal admin/user management — always called with a signed-in user JWT.
+[functions.admin-manage]
+verify_jwt = true
+
+# Started by the staff portal AND by pg_cron (tick_active_campaigns) using the
+# service-role bearer. The function validates the Authorization header itself,
+# so the gateway check is disabled to allow the cron invocation through.
+[functions.start-campaign]
+verify_jwt = false
+
+# Telnyx Call Control webhook — no Supabase JWT is present.
+[functions.telnyx-call-events]
+verify_jwt = false
+
+# Telnyx AI Assistant tool webhooks — authenticated via x-carecall-secret.
+[functions.assistant-tools]
+verify_jwt = false

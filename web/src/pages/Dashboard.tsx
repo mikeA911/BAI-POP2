@@ -215,7 +215,7 @@ export default function Dashboard() {
         <div className="sb-group">
           <span className="sb-status"><span className="sb-dot" aria-hidden />Network Servers Online</span>
           <span className="sb-sep" aria-hidden>·</span>
-          <span className="sb-clinic">{headline}</span>
+          <Link className="sb-clinic" to="/about">{headline}</Link>
         </div>
         <div className="sb-group">
           <span className="sb-date">{todayLabel}</span>
@@ -400,6 +400,8 @@ export default function Dashboard() {
           </table>
         </>
       )}
+
+      <footer className="copyright">&copy; BettrAI 2026</footer>
     </>
   );
 }

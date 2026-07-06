@@ -7,6 +7,7 @@ import { MULTI_CLINIC_ENABLED } from "./lib/config";
 import type { Role } from "./lib/types";
 
 import Login from "./pages/Login";
+import About from "./pages/About";
 import Dashboard from "./pages/Dashboard";
 import Review from "./pages/Review";
 import Campaigns from "./pages/Campaigns";
@@ -156,6 +157,7 @@ export default function App() {
         <AdminContextBanner />
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/about" element={<About />} />
           <Route path="/review" element={<Review />} />
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/campaigns/new" element={<Guard min="clinic_admin"><CampaignNew /></Guard>} />

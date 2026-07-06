@@ -62,9 +62,27 @@ export type Campaign = {
   slot_length_minutes: number;
   status: CampaignStatus;
   scheduled_start: string | null;
+  telnyx_assistant_id: string | null;
   created_by: string | null;
   created_at: string;
 };
+
+export type AppointmentTypeAssistant = {
+  id: string;
+  clinic_id: string;
+  appointment_type: string;
+  label: string | null;
+  telnyx_assistant_id: string;
+  active: boolean;
+  created_at: string;
+};
+
+// Campaign (appointment) types available to configure. Only "New Patient" is
+// live today; add entries here as new campaign types are introduced and staff
+// will supply the matching Telnyx assistant ID in Clinic settings.
+export const CAMPAIGN_TYPES: { value: string; label: string }[] = [
+  { value: "new_patient", label: "New Patient" },
+];
 
 export type CampaignStat = {
   campaign_id: string;

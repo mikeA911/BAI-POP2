@@ -56,17 +56,29 @@ where id between 'a0000000-0000-0000-0000-000000000001' and 'a0000000-0000-0000-
 -- ============================================================
 -- NOTE: after the portal_roles migration, campaigns use `status` (enum), not `active`,
 -- and require clinic_id.
+-- Only the "New Patient" campaign type is live today, so all mock campaigns
+-- use appointment_type = 'new_patient'. Additional types are added later and
+-- their Telnyx assistant IDs are configured in Clinic settings.
 insert into campaigns (id, clinic_id, name, appointment_type, greeting_context, provider_id, slot_length_minutes, status) values
-  ('c0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Annual Wellness Visits — July', 'wellness',
+  ('c0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Annual Wellness Visits — July', 'new_patient',
    'Dr. Jones would like to schedule your annual wellness visit.',
    '11111111-1111-1111-1111-111111111111', 30, 'active'),
-  ('c0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Flu Vaccination Outreach', 'flu_shot',
+  ('c0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Flu Vaccination Outreach', 'new_patient',
    'We are scheduling flu vaccination appointments ahead of the season.',
    '22222222-2222-2222-2222-222222222222', 30, 'active'),
-  ('c0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'Q2 Follow-up Calls', 'follow_up',
+  ('c0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'Q2 Follow-up Calls', 'new_patient',
    'The doctor asked us to schedule your follow-up appointment.',
    '11111111-1111-1111-1111-111111111111', 30, 'completed')
 on conflict (id) do nothing;
+
+-- Force any pre-existing mock campaigns (from an earlier run with other types)
+-- onto the New Patient type as well, since on-conflict above skips updates.
+update campaigns set appointment_type = 'new_patient'
+where id in (
+  'c0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000003'
+);
 
 -- ============================================================
 -- CAMPAIGN PATIENTS — a realistic spread of every status

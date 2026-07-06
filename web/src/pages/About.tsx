@@ -61,7 +61,16 @@ const SAFEGUARDS = [
   "Audit log of user and record changes for HIPAA-conscious operations",
 ];
 
-export default function About({ onClose }: { onClose: () => void }) {
+import { useNavigate } from "react-router-dom";
+
+// `onClose` is passed from the Login screen (pre-auth). When rendered as an
+// in-app route it is omitted, and we fall back to navigating back / home.
+export default function About({ onClose }: { onClose?: () => void }) {
+  const navigate = useNavigate();
+  const handleClose = () => {
+    if (onClose) onClose();
+    else navigate(-1);
+  };
   return (
     <div className="about-panel">
       <div className="about-head">
@@ -69,8 +78,8 @@ export default function About({ onClose }: { onClose: () => void }) {
           <h1>About CareCall</h1>
           <p className="muted">Automating patient scheduling with AI</p>
         </div>
-        <button type="button" className="link" onClick={onClose}>
-          Back to sign in
+        <button type="button" className="link" onClick={handleClose}>
+          {onClose ? "Back to sign in" : "Back"}
         </button>
       </div>
 
@@ -150,6 +159,8 @@ export default function About({ onClose }: { onClose: () => void }) {
         Beyond scheduling, CareCall is a versatile campaign engine ready for
         future outreach such as medication reminders and intake surveys.
       </p>
+
+      <footer className="copyright">&copy; BettrAI 2026</footer>
     </div>
   );
 }

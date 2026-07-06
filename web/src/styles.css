@@ -388,7 +388,8 @@ a.btn { display: inline-block; text-decoration: none; }
 }
 .status-banner .sb-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .status-banner .sb-sep { color: var(--line); }
-.status-banner .sb-clinic { font-weight: 600; color: var(--ink); }
+.status-banner .sb-clinic { font-weight: 600; color: var(--ink); text-decoration: none; }
+.status-banner a.sb-clinic:hover { color: var(--blue); text-decoration: underline; }
 .status-banner .sb-date { color: var(--ink); }
 .status-banner .sb-status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--teal-dark); }
 .status-banner .sb-dot {
@@ -399,6 +400,13 @@ a.btn { display: inline-block; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .status-banner .sb-dot { animation: none; } }
 .status-banner .sb-support a { color: var(--blue); font-weight: 600; text-decoration: none; }
 .status-banner .sb-support a:hover { text-decoration: underline; }
+
+/* Page copyright footer */
+.copyright {
+  margin-top: var(--sp-4); padding-top: var(--sp-2);
+  border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 12px; text-align: center;
+}
 
 /* ============================================================
    Dashboard hero header (Healthcare Blue palette)

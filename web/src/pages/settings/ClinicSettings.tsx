@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useClinic } from "../../lib/clinic";
-import type { Clinic } from "../../lib/types";
+import { CAMPAIGN_TYPES, type Clinic, type AppointmentTypeAssistant } from "../../lib/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 type Hours = Record<string, { start: string; end: string } | null>;
@@ -13,6 +13,11 @@ export default function ClinicSettings() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // Campaign type -> Telnyx assistant ID (keyed by appointment_type).
+  const [assistantIds, setAssistantIds] = useState<Record<string, string>>({});
+  const [savingAssistants, setSavingAssistants] = useState(false);
+  const [assistantMsg, setAssistantMsg] = useState("");
+
   useEffect(() => {
     if (!activeClinicId) return;
     supabase.from("clinics").select("*").eq("id", activeClinicId).single().then(({ data }) => {
@@ -20,7 +25,39 @@ export default function ClinicSettings() {
       setClinic(c);
       setHours((c?.calling_hours as Hours) ?? {});
     });
+    supabase.from("appointment_type_assistants").select("*").eq("clinic_id", activeClinicId)
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        for (const row of (data as AppointmentTypeAssistant[]) ?? []) {
+          map[row.appointment_type] = row.telnyx_assistant_id;
+        }
+        setAssistantIds(map);
+      });
   }, [activeClinicId]);
+
+  async function saveAssistants() {
+    if (!activeClinicId) return;
+    setSavingAssistants(true); setAssistantMsg("");
+    // Upsert one row per configured campaign type that has an assistant ID.
+    const rows = CAMPAIGN_TYPES
+      .filter((t) => (assistantIds[t.value] ?? "").trim())
+      .map((t) => ({
+        clinic_id: activeClinicId,
+        appointment_type: t.value,
+        label: t.label,
+        telnyx_assistant_id: assistantIds[t.value].trim(),
+        active: true,
+      }));
+    if (!rows.length) {
+      setSavingAssistants(false);
+      setAssistantMsg("Enter at least one Telnyx assistant ID to save.");
+      return;
+    }
+    const { error } = await supabase.from("appointment_type_assistants")
+      .upsert(rows, { onConflict: "clinic_id,appointment_type" });
+    setSavingAssistants(false);
+    setAssistantMsg(error ? `Failed: ${error.message}` : "Campaign type assistants saved.");
+  }
 
   function setDay(weekday: number, open: boolean) {
     setHours((h) => ({ ...h, [weekday]: open ? (h[weekday] ?? { start: "09:00", end: "19:00" }) : null }));
@@ -96,6 +133,32 @@ export default function ClinicSettings() {
 
         <div style={{ marginTop: 16 }}>
           <button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save settings"}</button>
+        </div>
+      </div>
+
+      <div className="form-card" style={{ maxWidth: 640, marginTop: 20 }}>
+        <h2>Campaign types &amp; Telnyx assistants</h2>
+        <p className="muted small">
+          Each campaign type is answered by its own Telnyx AI assistant. Enter the
+          assistant ID for each type; calls for that campaign type will start that
+          assistant. Types left blank fall back to the default assistant. More
+          types will appear here as they are added.
+        </p>
+        {assistantMsg && <p role="status">{assistantMsg}</p>}
+
+        {CAMPAIGN_TYPES.map((t) => (
+          <div key={t.value} style={{ marginBottom: 10 }}>
+            <label htmlFor={`asst-${t.value}`}>{t.label}</label>
+            <input id={`asst-${t.value}`} value={assistantIds[t.value] ?? ""}
+                   placeholder="Telnyx assistant ID (e.g. assistant-…)"
+                   onChange={(e) => setAssistantIds({ ...assistantIds, [t.value]: e.target.value })} />
+          </div>
+        ))}
+
+        <div style={{ marginTop: 12 }}>
+          <button onClick={saveAssistants} disabled={savingAssistants}>
+            {savingAssistants ? "Saving…" : "Save assistant IDs"}
+          </button>
         </div>
       </div>
     </>
