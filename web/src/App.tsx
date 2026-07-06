@@ -123,11 +123,10 @@ function Sidebar() {
       )}
 
       <div className="nav-spacer" />
-      <NavLink to="/settings/profile">Profile</NavLink>
+      <NavLink to="/settings/profile" title={session?.user?.email ?? undefined}>Profile</NavLink>
       <button className="signout" onClick={signOut}>Sign out</button>
       <div className="nav-user">
         {displayName}
-        {session?.user?.email && <div className="nav-email">{session.user.email}</div>}
         {activeClinic && <div className="nav-clinic">{activeClinic.name}</div>}
       </div>
     </nav>
