@@ -1,16 +1,45 @@
+/* ============================================================
+   CareCall — Modern Clinic Workflow design system
+   Aligned to "CareCall: Branding and UI Identity Guidelines"
+   ============================================================ */
 :root {
-  --ink: #16283a;        /* deep clinical navy — text & nav */
-  --paper: #f6f8f9;      /* cool paper background */
-  --card: #ffffff;
-  --teal: #0e7c7b;       /* primary action */
-  --teal-dark: #0a5c5b;
-  --amber: #b98200;      /* pending / attention */
-  --green: #2f7d4f;      /* booked */
-  --red: #b4533a;        /* flags / failures */
-  --line: #dde4e8;
-  --muted: #5b6b78;
-  --radius: 10px;
-  --font-display: "Bricolage Grotesque", sans-serif;
+  /* --- Colour palette & status anchors (guideline §3) --- */
+  --blue: #1A56DB;         /* Healthcare Blue — primary anchor, nav, pending  */
+  --blue-dark: #1544ad;    /* hover / active depth for primary                */
+  --teal: #0D9488;         /* Soft Teal — success, booked, verified           */
+  --teal-dark: #0B7A70;    /* hover depth for teal                            */
+  --amber: #D97706;        /* Warning Amber — wrong number, no answer         */
+  --indigo: #4F46E5;       /* Escalation Indigo — needs human, escalation     */
+  --grey: #6B7280;         /* Neutral Grey — declined, completed, inactive    */
+
+  /* Retained aliases so existing class names keep working */
+  --green: var(--teal);    /* "booked" success now maps to Soft Teal          */
+  --red: var(--indigo);    /* flags / audit now use Escalation Indigo         */
+
+  /* --- Surfaces (guideline §2 / §3) --- */
+  --card: #FFFFFF;         /* Clinic White — content cards & tables           */
+  --paper: #F9FAFB;        /* Clinical Frost — portal background               */
+  --ink: #111827;          /* primary text (7:1 on frost/white)               */
+  --muted: var(--grey);    /* secondary text / metadata                       */
+  --line: #E5E7EB;         /* hairline borders (1px soft grey)                */
+
+  /* --- Geometry (guideline §2: 12px components, 16px primary cards) --- */
+  --radius: 12px;          /* default component radius                         */
+  --radius-lg: 16px;       /* primary cards                                    */
+  --radius-sm: 8px;        /* inputs, chips, small controls                    */
+
+  /* --- Elevation (guideline §2: soft clinical depth) --- */
+  --shadow: 0px 4px 20px rgba(0,0,0,0.05);
+  --shadow-modal: 0px 10px 40px rgba(17,24,39,0.18);
+
+  /* --- 8px spacing grid (guideline §2) --- */
+  --sp-1: 8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+
+  /* --- Typography (guideline §4): Inter for display + body --- */
+  --font-display: "Inter", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
 }
 
@@ -22,111 +51,173 @@ body {
   color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .layout { display: flex; min-height: 100vh; }
 
+/* Navigation: Healthcare Blue anchor with soft-focus backdrop blur (guideline §2, §6) */
 nav.sidebar {
-  width: 210px; flex-shrink: 0;
-  background: var(--ink); color: #cfe3e3;
-  padding: 20px 14px; display: flex; flex-direction: column; gap: 4px;
+  width: 220px; flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(26,86,219,0.94), rgba(21,68,173,0.94));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #DCE6FB;
+  padding: var(--sp-3) var(--sp-2);
+  display: flex; flex-direction: column; gap: 4px;
+  position: sticky; top: 0; align-self: flex-start; height: 100vh;
 }
 nav.sidebar .brand {
   font-family: var(--font-display); font-weight: 700; font-size: 20px;
-  color: #fff; margin-bottom: 20px; letter-spacing: -0.02em;
+  color: #fff; margin-bottom: var(--sp-3); letter-spacing: -0.02em;
 }
-nav.sidebar .brand span { color: #6fc7c6; }
+nav.sidebar .brand span { color: #A9C4FA; }
 nav.sidebar a {
-  color: #cfe3e3; text-decoration: none; padding: 8px 10px;
-  border-radius: 6px; font-weight: 500;
+  color: #DCE6FB; text-decoration: none; padding: 8px 12px;
+  border-radius: var(--radius-sm); font-weight: 500;
 }
-nav.sidebar a:hover { background: rgba(255,255,255,0.08); }
-nav.sidebar a.active { background: var(--teal); color: #fff; }
-nav.sidebar a:focus-visible { outline: 2px solid #6fc7c6; outline-offset: 2px; }
+nav.sidebar a:hover { background: rgba(255,255,255,0.12); }
+nav.sidebar a.active { background: rgba(255,255,255,0.18); color: #fff; font-weight: 600; }
+nav.sidebar a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-main.content { flex: 1; padding: 28px 32px; max-width: 1100px; }
+main.content { flex: 1; padding: var(--sp-4); max-width: 1160px; }
 
+/* Typographic hierarchy (guideline §4) */
 h1 {
-  font-family: var(--font-display); font-weight: 700; font-size: 26px;
-  letter-spacing: -0.02em; margin: 0 0 18px;
+  font-family: var(--font-display); font-weight: 700; font-size: 28px;
+  letter-spacing: -0.02em; margin: 0 0 var(--sp-2); color: var(--ink);
 }
-h2 { font-family: var(--font-display); font-size: 17px; margin: 24px 0 10px; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: var(--sp-3) 0 10px; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+/* Dashboard scorecards (guideline §5): high-visibility metric cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-2); }
 .card {
   background: var(--card); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px 16px;
+  border-radius: var(--radius-lg); padding: var(--sp-2) 20px;
+  box-shadow: var(--shadow);
 }
-.card .num { font-family: var(--font-display); font-size: 26px; font-weight: 700; }
-.card .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+/* Metric numerals: Semi-Bold 600, 32px, Healthcare Blue (guideline §4) */
+.card .num { font-family: var(--font-display); font-size: 32px; font-weight: 600; color: var(--blue); letter-spacing: -0.01em; line-height: 1.1; }
+.card .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
 
-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); }
-td { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--paper); }
+td { padding: 12px 14px; border-bottom: 1px solid var(--line); }
 tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(26,86,219,0.03); }
 
-.badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }
-.badge.booked { background: #e2f2e8; color: var(--green); }
-.badge.pending, .badge.calling { background: #fbf1d9; color: var(--amber); }
-.badge.declined, .badge.no_answer, .badge.voicemail { background: #eef1f3; color: var(--muted); }
-.badge.verification_failed, .badge.needs_human, .badge.wrong_number { background: #f7e5df; color: var(--red); }
-.badge.callback_requested { background: #e1eef5; color: #2a6a8f; }
+/* Status mapping (guideline §3) — colours tied to campaign_patients schema */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; line-height: 1.4; }
+.badge.booked { background: #E0F2F0; color: var(--teal-dark); }               /* Booked — Soft Teal        */
+.badge.pending, .badge.calling { background: #E4EDFC; color: var(--blue); }   /* Pending/Dialing — Blue    */
+.badge.no_answer, .badge.wrong_number { background: #FCEFDD; color: #B45E05; }/* No Answer/Wrong # — Amber */
+.badge.declined, .badge.voicemail { background: #F0F1F3; color: var(--grey); }/* Declined/VM — Neutral Grey*/
+.badge.verification_failed, .badge.needs_human { background: #E9E7FB; color: var(--indigo); } /* Human Intervention — Indigo */
+.badge.callback_requested { background: #E4EDFC; color: var(--blue); }
 
+/* Primary action — Healthcare Blue solid (guideline §8) */
 button, .btn {
   font-family: var(--font-body); font-weight: 600; font-size: 14px;
-  background: var(--teal); color: #fff; border: none; border-radius: 8px;
+  background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm);
   padding: 9px 16px; cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
-button:hover { background: var(--teal-dark); }
-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-button.secondary { background: transparent; color: var(--teal); border: 1px solid var(--teal); }
+button:hover { background: var(--blue-dark); }
+button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+button.secondary { background: transparent; color: var(--blue); border: 1px solid var(--blue); }
+button.secondary:hover { background: rgba(26,86,219,0.06); }
+/* Success/confirm — Soft Teal (create_appointment flash, guideline §8) */
+button.success, .btn.success { background: var(--teal); }
+button.success:hover { background: var(--teal-dark); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 input, select, textarea {
   font-family: var(--font-body); font-size: 14px;
-  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
-  background: #fff; width: 100%;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px 11px;
+  background: #fff; width: 100%; color: var(--ink);
 }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--teal); border-color: var(--teal); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outline-offset: 0; border-color: var(--blue); }
 label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
 
-.form-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; max-width: 520px; }
+.form-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--sp-3); max-width: 520px; box-shadow: var(--shadow); }
 .empty { color: var(--muted); padding: 24px; text-align: center; }
 
-/* Live feed — the console's signature: a quiet pulse next to active calls */
+/* Live feed — signature pulse next to active calls; Active Call = Blue (guideline §5) */
 .live-dot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--teal); margin-right: 7px;
+  background: var(--blue); margin-right: 7px;
   animation: pulse 1.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
+/* Campaign running — pulsing blue border (guideline §8: Start Calling / Active) */
+.campaign-running, button.campaign-running {
+  animation: campaign-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .campaign-running { animation: none; } }
+@keyframes campaign-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(26,86,219,0.45); }
+  50% { box-shadow: 0 0 0 4px rgba(26,86,219,0.12); }
+}
+
+/* Outcome flip — 500ms Soft Teal row highlight before settling (guideline §5) */
+.row-flip td { animation: flip-teal 0.5s ease-out; }
+@media (prefers-reduced-motion: reduce) { .row-flip td { animation: none; } }
+@keyframes flip-teal {
+  0% { background: rgba(13,148,136,0.22); }
+  100% { background: transparent; }
+}
+
 @media (max-width: 760px) {
   .layout { flex-direction: column; }
-  nav.sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  nav.sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; }
   nav.sidebar .brand { margin: 0 12px 0 0; }
-  main.content { padding: 18px; }
+  main.content { padding: var(--sp-2); }
 }
 
 /* ---------- Portal roles UI additions ---------- */
 
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
+.metadata { color: var(--muted); font-size: 12px; }   /* system logs / timestamps (guideline §4) */
 
-/* Auth screen */
+/* PHI handling (guideline §7): obscure by default, reveal on intentional action */
+.phi { position: relative; }
+.phi.obscured { filter: blur(5px); user-select: none; letter-spacing: 0.02em; }
+.phi-reveal {
+  background: none; border: none; padding: 0 0 0 6px; cursor: pointer;
+  color: var(--blue); font-size: 12px; font-weight: 600;
+}
+
+/* Security signalling (guideline §7): verification lock state on active-call card */
+.verify-lock { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.verify-lock.locked { color: var(--teal-dark); }     /* verified — server-side match      */
+.verify-lock.unlocked { color: var(--amber); }       /* awaiting verify_patient / search  */
+
+/* Audit-required rows/cards: high-contrast Indigo border (guideline §7 failure flags) */
+.audit-flag { border: 2px solid var(--indigo) !important; }
+
+/* Hero Login — centered brand on a Clinical Frost base (guideline §6) */
 .auth-screen {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
-  /* Dark gradient wash over the healthcare photo keeps the card legible */
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--sp-3);
+  /* Frost + Healthcare Blue wash over the clinic photo establishes authority */
   background:
-    linear-gradient(180deg, rgba(22,40,58,0.72), rgba(10,60,59,0.78)),
+    linear-gradient(180deg, rgba(249,250,251,0.86), rgba(26,86,219,0.30)),
     url("/login-bg.webp") center / cover no-repeat fixed;
 }
-.auth-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 380px; box-shadow: 0 18px 50px rgba(8,30,40,0.35); }
+.auth-card {
+  background: rgba(255,255,255,0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: var(--sp-4); width: 100%; max-width: 380px; box-shadow: var(--shadow-modal);
+}
 .auth-card .brand { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--ink); margin-bottom: 14px; }
-.auth-card .brand span { color: var(--teal); }
+.auth-card .brand span { color: var(--blue); }
 .auth-card h1 { font-size: 20px; margin-bottom: 12px; }
-.auth-err { color: var(--red); font-size: 13px; margin: 8px 0 0; }
+.auth-err { color: var(--indigo); font-size: 13px; margin: 8px 0 0; }
 
 /* Row of secondary links under the sign-in form */
 .auth-links { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
@@ -158,12 +249,12 @@ label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
   display: flex; flex-direction: column; gap: 2px;
   background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
 }
-.about-tool code { font-size: 13px; font-weight: 700; color: var(--teal-dark); }
+.about-tool code { font-size: 13px; font-weight: 700; color: var(--blue); }
 
 .about-roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .about-role { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .about-role strong { display: block; font-family: var(--font-display); }
-.about-role-scope { display: block; color: var(--teal-dark); font-weight: 600; margin: 1px 0 4px; }
+.about-role-scope { display: block; color: var(--blue); font-weight: 600; margin: 1px 0 4px; }
 .about-role p { margin: 0; }
 
 .about-safeguards { margin: 0; padding-left: 18px; color: var(--muted); }
@@ -181,24 +272,25 @@ label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
 }
 
 /* Sidebar extras */
-nav.sidebar .nav-sep { color: #6fc7c6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 10px 4px; opacity: 0.75; }
+nav.sidebar .nav-sep { color: #A9C4FA; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: var(--sp-2) 12px 4px; opacity: 0.8; }
 nav.sidebar .nav-spacer { flex: 1; min-height: 12px; }
 nav.sidebar a { display: flex; align-items: center; justify-content: space-between; }
-.nav-badge { background: var(--red); color: #fff; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 7px; }
-nav.sidebar .signout { background: transparent; color: #cfe3e3; border: 1px solid rgba(255,255,255,0.2); text-align: left; padding: 8px 10px; margin-top: 6px; }
-nav.sidebar .signout:hover { background: rgba(255,255,255,0.08); }
-.nav-user { color: #9fc2c2; font-size: 12px; margin-top: 10px; padding: 0 10px; }
-.nav-clinic { color: #6fc7c6; font-weight: 600; }
-.clinic-switcher { margin-bottom: 14px; padding: 0 2px; }
-.clinic-switcher label { color: #9fc2c2; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-.clinic-switcher select { background: #10202f; color: #e6f2f2; border-color: #26424f; }
+.nav-badge { background: var(--indigo); color: #fff; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 7px; }
+nav.sidebar .signout { background: transparent; color: #DCE6FB; border: 1px solid rgba(255,255,255,0.25); text-align: left; padding: 8px 12px; margin-top: 6px; }
+nav.sidebar .signout:hover { background: rgba(255,255,255,0.12); }
+.nav-user { color: #B7CCF6; font-size: 12px; margin-top: 10px; padding: 0 12px; }
+.nav-clinic { color: #fff; font-weight: 600; }
+.clinic-switcher { margin-bottom: var(--sp-2); padding: 0 2px; }
+.clinic-switcher label { color: #B7CCF6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.clinic-switcher select { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.28); }
+.clinic-switcher select option { color: var(--ink); }
 
-/* Admin context banner */
-.context-banner { background: #e1eef5; color: #2a6a8f; border: 1px solid #b9d6e6; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+/* Admin context banner — Healthcare Blue informational surface */
+.context-banner { background: #E4EDFC; color: var(--blue-dark); border: 1px solid #C3D6F8; border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: var(--sp-2); font-size: 13px; }
 
 /* Cards as links */
-.card-link { text-decoration: none; color: inherit; display: block; }
-.card-link:hover { border-color: var(--teal); }
+.card-link { text-decoration: none; color: inherit; display: block; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.card-link:hover { border-color: var(--blue); box-shadow: 0px 6px 24px rgba(26,86,219,0.10); }
 
 /* Page header row */
 .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
@@ -207,42 +299,43 @@ nav.sidebar .signout:hover { background: rgba(255,255,255,0.08); }
 /* Quick actions + row actions */
 .quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-button.danger, .btn.danger { background: var(--red); color: #fff; }
-button.danger:hover { background: #8f3f2c; }
-button.link, .link { background: none; border: none; color: var(--teal); padding: 0; font-weight: 600; cursor: pointer; text-decoration: none; }
-button.link.danger { color: var(--red); }
+button.danger, .btn.danger { background: var(--indigo); color: #fff; }
+button.danger:hover { background: #3f38c4; }
+button.link, .link { background: none; border: none; color: var(--blue); padding: 0; font-weight: 600; cursor: pointer; text-decoration: none; }
+button.link.danger { color: var(--indigo); }
 a.btn { display: inline-block; text-decoration: none; }
 
 /* Filter chips */
-.filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-.chip { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px; font-size: 13px; text-transform: capitalize; }
-.chip-on { background: var(--teal); color: #fff; border-color: var(--teal); }
+.filter-row { display: flex; gap: 6px; margin-bottom: var(--sp-2); flex-wrap: wrap; }
+.chip { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 5px 13px; font-size: 13px; text-transform: capitalize; }
+.chip-on { background: var(--blue); color: #fff; border-color: var(--blue); }
 
 /* Status badges (campaign lifecycle) */
-.badge.status-draft { background: #eef1f3; color: var(--muted); }
-.badge.status-scheduled { background: #e1eef5; color: #2a6a8f; }
-.badge.status-active { background: #e2f2e8; color: var(--green); }
-.badge.status-paused { background: #fbf1d9; color: var(--amber); }
-.badge.status-completed { background: #e8eef0; color: var(--ink); }
-.badge.resolved { background: #e2f2e8; color: var(--green); }
+.badge.status-draft { background: #F0F1F3; color: var(--grey); }
+.badge.status-scheduled { background: #E4EDFC; color: var(--blue); }
+.badge.status-active { background: #E0F2F0; color: var(--teal-dark); }
+.badge.status-paused { background: #FCEFDD; color: #B45E05; }
+.badge.status-completed { background: #F0F1F3; color: var(--grey); }
+.badge.resolved { background: #E0F2F0; color: var(--teal-dark); }
 
 /* Tabs */
-.tabs { display: flex; gap: 4px; margin: 16px 0 10px; border-bottom: 1px solid var(--line); }
-.tabs button { background: transparent; color: var(--muted); border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px; }
-.tabs button.tab-on { color: var(--ink); border-bottom-color: var(--teal); }
+.tabs { display: flex; gap: 4px; margin: var(--sp-2) 0 10px; border-bottom: 1px solid var(--line); }
+.tabs button { background: transparent; color: var(--muted); border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px; font-weight: 500; }
+.tabs button:hover { color: var(--ink); background: transparent; }
+.tabs button.tab-on { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
 
-/* Progress bar */
-.progress-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--line); margin-bottom: 12px; }
+/* Progress bar — segments mapped to status palette (guideline §3) */
+.progress-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--line); margin-bottom: var(--sp-2); }
 .progress-bar .seg { height: 100%; }
-.progress-bar .seg.booked { background: var(--green); }
-.progress-bar .seg.pending { background: var(--amber); }
-.progress-bar .seg.unreached { background: #9aa8b2; }
-.progress-bar .seg.needs { background: var(--red); }
+.progress-bar .seg.booked { background: var(--teal); }
+.progress-bar .seg.pending { background: var(--blue); }
+.progress-bar .seg.unreached { background: var(--amber); }
+.progress-bar .seg.needs { background: var(--indigo); }
 
 /* Tables: row states */
 .row-muted td { opacity: 0.55; }
-.row-error td { background: #fbeae4; }
-.row-selected td { background: #eef7f7; }
+.row-error td { background: rgba(79,70,229,0.06); }
+.row-selected td { background: rgba(26,86,219,0.06); }
 .scroll-box { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
 .scroll-box table { border: none; border-radius: 0; }
 
@@ -266,9 +359,17 @@ a.btn { display: inline-block; text-decoration: none; }
 .hours-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .hours-row input[type="time"] { width: auto; }
 
-/* Users temp password */
-.temp-pw { background: #fbf1d9; border: 1px solid #e6d19a; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+/* Users temp password — Warning Amber caution surface */
+.temp-pw { background: #FCEFDD; border: 1px solid #F0D9B5; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: var(--sp-2); color: #7A4405; }
 .temp-pw code { font-size: 15px; font-weight: 700; }
+
+/* Transcript viewer — clean, messaging-style surface (guideline §5) */
+.transcript-box {
+  white-space: pre-wrap; font-size: 13px; line-height: 1.55;
+  background: var(--paper); border: 1px solid var(--line);
+  padding: var(--sp-2); border-radius: var(--radius-sm);
+  color: var(--ink); margin: 0;
+}
 
 /* Avatar */
 .avatar-lg { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 24px; font-weight: 700; flex-shrink: 0; }

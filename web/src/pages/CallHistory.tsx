@@ -56,7 +56,7 @@ export default function CallHistory() {
             <h2 style={{ marginTop: 0 }}>Call detail</h2>
             {l.summary && <p><strong>AI summary:</strong> {l.summary}</p>}
             <p><strong>Transcript</strong></p>
-            <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, background: "#f2f5f6", padding: 12, borderRadius: 8 }}>
+            <pre className="transcript-box">
               {l.transcript ? JSON.stringify(l.transcript, null, 2) : "Transcript not captured for this call."}
             </pre>
           </div>
