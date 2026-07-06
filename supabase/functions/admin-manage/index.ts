@@ -215,11 +215,11 @@ async function clearForcePasswordChange(caller: Caller) {
     // Nothing to do — flag already absent/false. Idempotent success.
     return json({ ok: true }, 200, corsHeaders());
   }
-  const nextMeta = { ...prevMeta };
-  delete nextMeta[FORCE_CHANGE_KEY];
-
+  // updateUserById shallow-MERGES app_metadata, so deleting the key from the
+  // object we send would simply be omitted from the merge and leave the stored
+  // value untouched. We must explicitly send the key as null to clear it.
   const { error } = await supabase.auth.admin.updateUserById(caller.userId, {
-    app_metadata: nextMeta,
+    app_metadata: { ...prevMeta, [FORCE_CHANGE_KEY]: null },
   });
   if (error) return json({ error: error.message }, 400, corsHeaders());
 
