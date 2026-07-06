@@ -17,7 +17,7 @@ type ClinicCtx = {
 const Ctx = createContext<ClinicCtx | null>(null);
 
 export function ClinicProvider({ children }: { children: ReactNode }) {
-  const { role, clinicId, session } = useSession();
+  const { clinicId, session } = useSession();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [activeClinicId, setActive] = useState<string | null>(clinicId);
   const [loading, setLoading] = useState(true);
@@ -28,15 +28,14 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     supabase.from("clinics").select("*").order("name").then(({ data }) => {
       const list = (data as Clinic[]) ?? [];
       setClinics(list);
-      // Non-admins are pinned to their own clinic; Admin defaults to the first.
-      if (role === "admin") {
-        setActive((cur) => cur ?? list[0]?.id ?? null);
-      } else {
-        setActive(clinicId);
-      }
+      // Single-clinic build: every role (Admin, Provider, Staff) is pinned to the
+      // one clinic so the dashboard heading always shows the clinic name.
+      // (When MULTI_CLINIC is enabled, restore JWT clinic_id pinning for non-admins
+      // and the switcher default for admins.)
+      setActive((cur) => clinicId ?? cur ?? list[0]?.id ?? null);
       setLoading(false);
     });
-  }, [session, role, clinicId]);
+  }, [session, clinicId]);
 
   const activeClinic = clinics.find((c) => c.id === activeClinicId) ?? null;
 
