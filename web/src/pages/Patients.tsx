@@ -97,6 +97,7 @@ export default function Patients() {
       .upsert(rows, { onConflict: "campaign_id,patient_id", ignoreDuplicates: true });
     setMsg(error ? `Failed: ${error.message}` : `Added ${rows.length} patients to the campaign queue.`);
     setSelected(new Set());
+    load();
   }
 
   function toggle(id: string) {

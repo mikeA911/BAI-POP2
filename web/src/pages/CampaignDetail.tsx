@@ -28,7 +28,7 @@ export default function CampaignDetail() {
   const [tab, setTab] = useState<"patients" | "debug">("patients");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [edit, setEdit] = useState<{ name: string; greeting_context: string } | null>(null);
+  const [edit, setEdit] = useState<{ name: string; greeting_context: string; scheduled_start: string | null } | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -72,13 +72,18 @@ export default function CampaignDetail() {
   async function saveEdit() {
     if (!edit) return;
     setBusy(true);
-    await supabase.from("campaigns").update({ name: edit.name, greeting_context: edit.greeting_context }).eq("id", id);
+    const update: Record<string, unknown> = {
+      name: edit.name,
+      greeting_context: edit.greeting_context,
+      scheduled_start: edit.scheduled_start ? new Date(edit.scheduled_start).toISOString() : null,
+    };
+    await supabase.from("campaigns").update(update).eq("id", id);
     setBusy(false); setEdit(null); setMsg("Saved."); load();
   }
 
   if (!campaign) return <p className="empty">Loading…</p>;
 
-  const editable = canManage && (campaign.status === "draft" || campaign.status === "paused");
+  const editable = canManage && (campaign.status === "draft" || campaign.status === "scheduled" || campaign.status === "paused");
   const total = stat?.total_patients ?? 0;
   const seg = (n?: number) => (total ? `${Math.round(100 * (n ?? 0) / total)}%` : "0%");
 
@@ -99,7 +104,7 @@ export default function CampaignDetail() {
           <button className="secondary" disabled={busy} onClick={() => setStatus("paused")}>Pause</button>
         )}
         {editable && !edit && (
-          <button className="secondary" onClick={() => setEdit({ name: campaign.name, greeting_context: campaign.greeting_context })}>Edit</button>
+          <button className="secondary" onClick={() => setEdit({ name: campaign.name, greeting_context: campaign.greeting_context, scheduled_start: campaign.scheduled_start })}>Edit</button>
         )}
       </div>
 
@@ -109,6 +114,8 @@ export default function CampaignDetail() {
           <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
           <label>Reason the AI gives</label>
           <textarea rows={3} value={edit.greeting_context} onChange={(e) => setEdit({ ...edit, greeting_context: e.target.value })} />
+          <label>Schedule start</label>
+          <input type="datetime-local" value={edit.scheduled_start ?? ""} onChange={(e) => setEdit({ ...edit, scheduled_start: e.target.value })} />
           <div className="row-actions" style={{ marginTop: 10 }}>
             <button disabled={busy} onClick={saveEdit}>Save</button>
             <button className="secondary" onClick={() => setEdit(null)}>Cancel</button>
