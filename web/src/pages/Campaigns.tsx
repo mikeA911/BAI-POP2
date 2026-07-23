@@ -18,6 +18,7 @@ export default function Campaigns() {
   const [filter, setFilter] = useState<CampaignStatus | "all">("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!activeClinicId) return;
@@ -38,11 +39,19 @@ export default function Campaigns() {
 
   async function startCalling(c: Campaign) {
     setBusy(c.id);
-    // Move to active first (Staff may run/schedule/pause — RLS allows the update).
     if (c.status !== "active") await supabase.from("campaigns").update({ status: "active" }).eq("id", c.id);
     const { error } = await callFunction("start-campaign", { campaign_id: c.id, batch_size: 3 });
     setBusy(null);
     setMsg(error ? `Dialer: ${error}` : "Dialing started.");
+    load();
+  }
+
+  async function doDelete(c: Campaign) {
+    setBusy(c.id);
+    const { error } = await supabase.from("campaigns").delete().eq("id", c.id);
+    setBusy(null);
+    setDeleteConfirmId(null);
+    setMsg(error ? `Failed: ${error.message}` : "Campaign deleted.");
     load();
   }
 
@@ -81,6 +90,15 @@ export default function Campaigns() {
                     <button className="secondary" disabled={busy === c.id} onClick={() => setStatus(c, "paused")}>Pause</button>
                   )}
                   <Link className="btn secondary" to={`/campaigns/${c.id}`}>Open</Link>
+                  {canManage && deleteConfirmId === c.id ? (
+                    <>
+                      <span style={{ marginRight: 8 }}>Delete this campaign?</span>
+                      <button className="danger" disabled={busy === c.id} onClick={() => doDelete(c)}>Yes, delete</button>
+                      <button className="secondary" disabled={busy === c.id} onClick={() => setDeleteConfirmId(null)}>Cancel</button>
+                    </>
+                  ) : canManage && (
+                    <button className="danger" disabled={busy === c.id} onClick={() => setDeleteConfirmId(c.id)}>Delete</button>
+                  )}
                 </div>
               </td>
             </tr>
