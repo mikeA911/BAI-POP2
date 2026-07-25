@@ -3,10 +3,18 @@
 // assistant routing, sms_fallback toggle) + restored INSIGHTS handler (was lost
 // in the debug fork: transcripts/summaries were not being stored) + 'notified'
 // added to markUnreached statuses (pre-call SMS race).
+// FIXED 2026-07-23:
+//   1. Added 'call.machine.premium.detection.ended' to the switch — Telnyx uses
+//      this event name (not 'call.machine.detection.ended') when AMD mode is
+//      set to "premium". Without this, AMD results were silently dropped and
+//      the AI assistant never started.
+//   2. Tightened looksLikeInsights to never swallow call.* events — removed
+//      the overly broad p.results check that was misrouting call control events
+//      to the insights handler.
 //
 // Implements the AMD gate from the call-flow spec:
 //   1. Dial with answering_machine_detection: "premium".
-//   2. On call.machine.detection.ended:
+//   2. On call.machine.premium.detection.ended:
 //        - human    → start the AI assistant on the call
 //        - machine  → wait for call.machine.greeting.ended, speak a brief
 //                     callback message, send an SMS, hang up. Never start the AI.
@@ -64,6 +72,11 @@ Deno.serve(async (req) => {
 
   try {
     switch (type) {
+      case "call.initiated": {
+        // Call created — no action needed, just acknowledge
+        break;
+      }
+
       case "call.answered": {
         // Don't start the AI yet — wait for AMD result. Just log.
         await supabase.from("call_logs").update({ started_at: new Date().toISOString() })
@@ -71,28 +84,50 @@ Deno.serve(async (req) => {
         break;
       }
 
-      case "call.machine.detection.ended": {
+      // FIX: Telnyx fires 'call.machine.premium.detection.ended' (not
+      // 'call.machine.detection.ended') when AMD mode is "premium".
+      // Both cases handled identically.
+      case "call.machine.detection.ended":
+      case "call.machine.premium.detection.ended": {
         const result: string = payload.result; // 'human' | 'machine' | 'not_sure'
         await supabase.from("call_logs").update({ amd_result: result }).eq("call_control_id", ccid);
 
-        if (result === "human" || result === "not_sure") {
-          // Treat not_sure as human — worst case the AI greets a voicemail and
-          // the silence-timeout ends the call. Start the AI assistant.
+        if (result === "human" || result === "human_residence" || result === "human_business" || result === "not_sure" || result === "silence") {
+          // All human-positive AMD results start the assistant.
+          // "human_residence" / "human_business" are premium AMD classifications.
+          // "silence" occurs on SIP softphones with no background noise.
+          // "not_sure" treated as human — worst case the AI greets a voicemail
+          // and the silence-timeout ends the call.
           const clinic = await clinicForCall(ccid);
-          // Route to the per-appointment-type assistant chosen at campaign
-          // creation, falling back to the env default when none is set.
           const assistantId = state?.assistant_id || ASSISTANT_ID;
-          await telnyx(`/calls/${ccid}/actions/ai_assistant_start`, {
-            assistant: { id: assistantId },
-            // Give the assistant per-call variables (never the DOB on file).
-            // appointment_type is intentionally omitted: the chosen assistant
-            // already encodes the type-specific behaviour in its own prompt.
-            dynamic_variables: {
-              patient_first_name: state?.patient_first_name ?? "",
-              campaign_context: state?.campaign_context ?? "",
-              clinic_name: clinic.name,
-            },
-          });
+
+          // Retry up to 3 times with increasing delay: 1s, 2s, 3s.
+          // Telnyx occasionally returns 503 if the call leg hasn't fully
+          // stabilised by the time the AMD event fires. A single retry almost
+          // always succeeds.
+          let lastErr: unknown;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              // First attempt: 200ms (barely perceptible). Retries: 2s, 4s.
+              await new Promise(r => setTimeout(r, attempt === 0 ? 200 : 2000 * attempt));
+              await telnyx(`/calls/${ccid}/actions/ai_assistant_start`, {
+                assistant: { id: assistantId },
+                // Per-call variables injected at runtime (never the DOB on file).
+                dynamic_variables: {
+                  patient_first_name: state?.patient_first_name ?? "",
+                  campaign_context: state?.campaign_context ?? "",
+                  clinic_name: clinic.name,
+                },
+              });
+              lastErr = null;
+              console.log(`ai_assistant_start succeeded on attempt ${attempt + 1}`);
+              break;
+            } catch (e) {
+              lastErr = e;
+              console.warn(`ai_assistant_start attempt ${attempt + 1} failed:`, e);
+            }
+          }
+          if (lastErr) throw lastErr;
         }
         // machine → do nothing here; wait for greeting to end before speaking
         break;
@@ -120,14 +155,9 @@ Deno.serve(async (req) => {
           // pre-call text (§3.3). No consent → skip the text (call already made).
           const smsConsent = await patientSmsConsent(state.patient_id);
           if (MESSAGING_PROFILE_ID && state.patient_phone && clinic.smsFallback && smsConsent) {
-            // Voicemail-fallback SMS. When self-booking is enabled for the
-            // clinic (and a booking link can be minted), send the self-serve
-            // copy with the link — the primary win: converting the largest
-            // dead-end bucket into 24/7 self bookings. Otherwise fall back to
-            // the classic "please call us" copy.
             let text =
               `Hi, this is ${clinic.name}. We called to help you schedule an appointment. ` +
-              `Please call us at ${clinic.callback} and we'll find a time that works.`;
+              `Please call us at ${clinic.callback} and we'll find a time that works. Reply STOP to opt out.`;
             if (clinic.selfBooking) {
               const link = await createBookingLink(state.campaign_id, state.patient_id, clinic.id);
               if (link) {
@@ -145,6 +175,34 @@ Deno.serve(async (req) => {
           }
         }
         await telnyx(`/calls/${ccid}/actions/hangup`, {});
+        break;
+      }
+
+      case "call.conversation.created": {
+        // Assistant started successfully — log for debugging
+        console.log("conversation started on call:", ccid?.slice(0, 20));
+        break;
+      }
+
+      case "call.conversation.ended": {
+        // Conversation finished — hangup follows shortly
+        break;
+      }
+
+      case "call.conversation_insights.generated": {
+        // Insights/transcript available — handle via handleInsights
+        try { await handleInsights(event); } catch (e) { console.error("insights failed", e); }
+        break;
+      }
+
+      case "call.recording.saved": {
+        // Recording URL available — store it
+        const recordingUrl = payload.recording_urls?.mp3 ?? payload.public_recording_urls?.mp3 ?? null;
+        if (recordingUrl && ccid) {
+          await supabase.from("call_logs")
+            .update({ recording_url: recordingUrl })
+            .eq("call_control_id", ccid);
+        }
         break;
       }
 
@@ -204,10 +262,19 @@ function spellNumber(e164: string): string {
 // recognize so the shape can be confirmed from real traffic.
 // ------------------------------------------------------------------
 function looksLikeInsights(evt: Record<string, unknown>): boolean {
-  const t = String((evt?.data as Record<string, unknown>)?.event_type ?? evt?.event_type ?? "");
+  const t = String(
+    (evt?.data as Record<string, unknown>)?.event_type ??
+    evt?.event_type ?? ""
+  );
+  // FIX: call control events must never be routed to insights handler.
+  // 'call.*' events are unambiguously call control — return false immediately.
+  if (t.startsWith("call.")) return false;
+  // Explicit insight event type
   if (t.includes("insight")) return true;
+  // For unknown event types, only match insight-specific payload fields.
+  // Removed p.results — too broad, was matching call control payloads.
   const p = ((evt?.data as Record<string, unknown>)?.payload ?? evt) as Record<string, unknown>;
-  return Boolean(p && (p.insight_results || p.insights || p.results));
+  return Boolean(p && (p.insight_results || p.insights));
 }
 
 function deepFind(obj: unknown, keys: string[], depth = 0): unknown {

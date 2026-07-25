@@ -25,20 +25,36 @@ function clinicTz(ctx: { clinics?: { timezone?: string } | { timezone?: string }
 Deno.serve(async (req) => {
   if (!checkToolSecret(req)) return json({ error: "unauthorized" }, 401);
 
-  const tool = new URL(req.url).searchParams.get("tool");
   const body = await req.json().catch(() => ({}));
-  // Telnyx sends dynamic variables incl. call_control_id with tool calls
-  const args = body?.data?.payload?.arguments ?? body?.arguments ?? body;
+
+  // Tool routing: Telnyx single-prompt assistants call the base URL and send
+  // the call_control_id as a header (x-telnyx-call-control-id), not in the body.
+  // Tool name is detected from body keys since Telnyx ignores URL path params.
   const callControlId: string | undefined =
-    body?.data?.payload?.call_control_id ?? args?.call_control_id;
+    req.headers.get("x-telnyx-call-control-id") ??
+    body?.data?.payload?.call_control_id ??
+    body?.call_control_id;
+
+  // Detect tool from body parameter keys — Telnyx calls the base URL for all tools
+  let tool = new URL(req.url).pathname.split("/").pop() ?? null;
+  if (!tool || tool === "assistant-tools") {
+    if (body.stated_date_of_birth !== undefined) tool = "verify_patient";
+    else if (body.granularity !== undefined) tool = "get_appointment_slots";
+    else if (body.slot_start !== undefined) tool = "create_appointment";
+    else if (body.outcome !== undefined) tool = "mark_outcome";
+  }
+
+  const args = body?.data?.payload?.arguments ?? body?.arguments ?? body;
+
+  console.log("tool:", tool, "ccid:", callControlId?.slice(0, 20) ?? "MISSING");
 
   try {
     switch (tool) {
-      case "verify_patient":       return await verifyPatient(callControlId, args);
+      case "verify_patient":        return await verifyPatient(callControlId, args);
       case "get_appointment_slots": return await getSlots(callControlId, args);
-      case "create_appointment":   return await createAppointment(callControlId, args);
-      case "mark_outcome":         return await markOutcome(callControlId, args);
-      default:                     return json({ error: `unknown tool: ${tool}` }, 400);
+      case "create_appointment":    return await createAppointment(callControlId, args);
+      case "mark_outcome":          return await markOutcome(callControlId, args);
+      default:                      return json({ error: `unknown tool: ${tool}` }, 400);
     }
   } catch (e) {
     console.error(`tool ${tool} error`, e);
@@ -183,7 +199,6 @@ async function createAppointment(callControlId: string | undefined, args: Record
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
     idempotency_key: idempotencyKey,
-    source: "voice",
   }).select("id").single();
 
   if (error) {
@@ -191,29 +206,18 @@ async function createAppointment(callControlId: string | undefined, args: Record
     if (error.code === "23P01") {
       return json({ booked: false, reason: "slot_taken", say: "That time was just taken. Please fetch new options." });
     }
-    // Cross-channel guard (one_active_appointment_per_campaign): the patient
-    // already holds an active appointment for this campaign — e.g. they booked
-    // via the self-service link while on the call. Return THAT appointment as an
-    // already-booked success ("You're already scheduled for …"), not an error.
+    // Unique constraint = patient already booked for this campaign (e.g. tool
+    // retry after a transient 520). Return the existing appointment as success.
     if (error.code === "23505") {
-      const { data: active } = await supabase.from("appointments")
+      const { data: existing } = await supabase.from("appointments")
         .select("id, starts_at")
         .eq("patient_id", ctx.patient_id)
         .eq("campaign_id", ctx.campaign_id)
         .in("status", ["booked", "confirmed"])
-        .order("starts_at", { ascending: true })
-        .limit(1)
         .maybeSingle();
-      if (active) {
-        await supabase.from("call_logs")
-          .update({ appointment_id: active.id, result: "booked" }).eq("id", ctx.id);
-        return json({
-          booked: true,
-          already_booked: true,
-          appointment_id: active.id,
-          spoken: speakable(active.starts_at, tz),
-          say: `You're already scheduled for ${speakable(active.starts_at, tz)}.`,
-        });
+      if (existing) {
+        return json({ booked: true, appointment_id: existing.id, spoken: speakable(existing.starts_at, tz),
+                      say: `You're already booked for ${speakable(existing.starts_at, tz)}.` });
       }
     }
     throw error;
